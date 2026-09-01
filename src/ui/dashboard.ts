@@ -139,7 +139,7 @@ export function renderOverlayPanel(input: OverlayRenderInput): string[] {
   const body: string[] = [];
 
   const context = state.filterLabel ? `${state.filterLabel} · ${state.range.label}` : `${state.range.label} · ${groupLabel(state.groupBy)}`;
-  body.push(joinSides(theme.bold("Pi Usage Ledger"), theme.fg("dim", context), innerWidth));
+  body.push(joinSides(theme.bold("Pi Usage Analytics"), theme.fg("dim", context), innerWidth));
   body.push(theme.fg("dim", truncateToWidth(`${reportingTimezone} · ${report.totals.turns} turns`, innerWidth)));
   body.push(rule(theme, innerWidth));
   body.push(...renderMetricStrip(report, theme, innerWidth));

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { visibleWidth } from "@earendil-works/pi-tui";
 import { openDashboard, renderOverlayPanel } from "../src/ui/dashboard.ts";
 import type { UsageReport } from "../src/usage/query.ts";
 
@@ -37,7 +38,7 @@ test("dashboard renderer produces a bordered overlay panel", () => {
 
   assert.match(lines[0]!, /^╭─+╮$/);
   assert.match(lines.at(-1)!, /^╰─+╯$/);
-  assert.ok(lines.some((line) => line.includes("Pi Usage Ledger")));
+  assert.ok(lines.some((line) => line.includes("Pi Usage Analytics")));
   assert.ok(lines.some((line) => line.includes("$181.42")));
   assert.ok(lines.some((line) => line.includes("› anthropic/claude-opus-4-1")));
   assert.ok(lines.every((line) => line.length > 0));
@@ -88,5 +89,5 @@ test("dashboard renderer respects narrow overlay widths", () => {
     reportingTimezone: "Asia/Shanghai",
   });
 
-  assert.ok(lines.every((line) => line.length <= 30));
+  assert.ok(lines.every((line) => visibleWidth(line) <= 30));
 });

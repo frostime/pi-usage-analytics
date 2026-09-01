@@ -17,7 +17,7 @@ Pi discovers npm packages for its gallery through the `pi-package` keyword and l
 npm install
 npm run check
 npm run pack:dry
-npm view pi-usage-ledger version
+npm view @frostime/pi-usage-analytics version
 ```
 
 The final command should return 404/not-found before the first publish. If the npm name has been claimed, change `name` before release; do not publish under an accidental conflicting package identity.
@@ -33,7 +33,7 @@ npm publish --access public
 After npm propagation:
 
 ```bash
-pi install npm:pi-usage-ledger
+pi install npm:@frostime/pi-usage-analytics
 ```
 
 Then verify `/usage` opens, a new turn appears, and the npm package has the `pi-package` keyword. The Pi gallery is derived from npm metadata; no separate extension bundle is required.

@@ -131,7 +131,7 @@ function labelFromRow(groupBy: GroupBy, row: SummaryRow): string {
 function showHelp(ctx: ExtensionCommandContext): void {
   ctx.ui.notify(
     [
-      "Pi Usage Ledger",
+      "Pi Usage Analytics",
       "",
       "/usage           Open the interactive dashboard",
       "/usage import    Manually scan Pi session history",

@@ -1,6 +1,6 @@
 ---
 title: Architecture
-description: Defines module ownership and dependency direction for Pi Usage Ledger.
+description: Defines module ownership and dependency direction for Pi Usage Analytics.
 scope:
   - /src/**
 updated: 2026-09-01

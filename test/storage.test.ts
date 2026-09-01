@@ -36,7 +36,7 @@ function fact(key: string, input: number, day = "2026-08-01"): UsageFact {
 }
 
 function withDb(run: (db: UsageDatabase) => void): void {
-  const dir = mkdtempSync(join(tmpdir(), "pi-usage-ledger-test-"));
+  const dir = mkdtempSync(join(tmpdir(), "pi-usage-analytics-test-"));
   const db = new UsageDatabase(join(dir, "usage.db"), "UTC");
   try {
     run(db);

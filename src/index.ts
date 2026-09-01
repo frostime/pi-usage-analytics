@@ -5,7 +5,7 @@ import { RealtimeUsageBuffer } from "./ingestion/realtime-buffer.ts";
 import { captureTurnUsage } from "./pi/capture.ts";
 import { UsageDatabase } from "./storage/usage-database.ts";
 
-export default function piUsageLedger(pi: ExtensionAPI): void {
+export default function piUsageAnalytics(pi: ExtensionAPI): void {
   let database: UsageDatabase | null = null;
   const realtime = new RealtimeUsageBuffer();
   let lastCaptureError = "";
@@ -50,7 +50,7 @@ export default function piUsageLedger(pi: ExtensionAPI): void {
         await handleUsageCommand(args, ctx, getDb());
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        ctx.ui.notify(`Pi Usage Ledger: ${message}`, "error");
+        ctx.ui.notify(`Pi Usage Analytics: ${message}`, "error");
       }
     },
   });
@@ -72,6 +72,6 @@ export default function piUsageLedger(pi: ExtensionAPI): void {
     if (message === lastCaptureError && now - lastCaptureErrorAt < 60_000) return;
     lastCaptureError = message;
     lastCaptureErrorAt = now;
-    ctx.ui.notify(`Pi Usage Ledger could not record recent usage: ${message}`, "warning");
+    ctx.ui.notify(`Pi Usage Analytics could not record recent usage: ${message}`, "warning");
   }
 }

@@ -10,7 +10,7 @@ import { UsageDatabase } from "../src/storage/usage-database.ts";
 const worker = fileURLToPath(new URL("./helpers/concurrent-worker.ts", import.meta.url));
 
 test("two writers and a compactor preserve all usage without SQLITE_BUSY failures", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "pi-usage-ledger-concurrency-"));
+  const dir = mkdtempSync(join(tmpdir(), "pi-usage-analytics-concurrency-"));
   const dbPath = join(dir, "usage.db");
   new UsageDatabase(dbPath, "UTC").close();
   try {

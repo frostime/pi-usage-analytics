@@ -1,4 +1,4 @@
-# Pi Usage Ledger
+# Pi Usage Analytics
 
 Local usage analytics for Pi. It records attributable assistant-model usage into SQLite and gives `/usage` a lightweight interactive dashboard with provider/model, directory, and calendar-time views.
 
@@ -21,7 +21,7 @@ It does **not** inspect provider billing APIs and does not claim account-billing
 Requires Pi `0.84.x` and Node `>=22.19.0`.
 
 ```bash
-pi install npm:pi-usage-ledger
+pi install npm:@frostime/pi-usage-analytics
 ```
 
 Try a local checkout without permanent installation:
@@ -87,7 +87,7 @@ The importer reads Pi session JSONL in streaming mode, scans all persisted branc
 
 `/usage compact` converts old event-level rows into permanent daily provider/model/directory aggregates. The recommended retention keeps the latest 30 calendar days as raw events.
 
-Before deletion, Pi Usage Ledger shows a preview and requires confirmation. After compression you retain:
+Before deletion, Pi Usage Analytics shows a preview and requires confirmation. After compression you retain:
 
 - day/week/month/date-range analytics;
 - provider/model/provider/directory breakdowns;
@@ -138,7 +138,7 @@ The package manifest contains the required `pi-package` keyword and `pi.extensio
 Before first publish, confirm the npm name remains available:
 
 ```bash
-npm view pi-usage-ledger version
+npm view @frostime/pi-usage-analytics version
 ```
 
 Then:
