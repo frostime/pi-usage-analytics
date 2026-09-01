@@ -1,20 +1,9 @@
 # Pi Usage Analytics
 
-Local usage analytics for Pi. It records attributable assistant-model usage into SQLite and gives `/usage` a lightweight interactive dashboard with provider/model, directory, and calendar-time views.
+Track your token and cost usage across providers, models, and working directories. Open the dashboard anytime with `/usage`.
 
-## What it tracks
-
-For each Pi assistant response with explicit provider/model usage metadata:
-
-- `<provider>/<model>` exactly as Pi reports it;
-- input, output, cache-read, and cache-write tokens;
-- Pi's reported `totalTokens` without recomputing it;
-- optional reasoning/cache-write-1h fields when Pi reports them;
-- Pi's estimated USD cost breakdown and total;
-- normalized session cwd;
-- UTC event time and a fixed reporting-timezone calendar day.
-
-It does **not** inspect provider billing APIs and does not claim account-billing precision. Cost is the amount Pi reports for the response.
+![Provider / Model summary](assets/each-models.png)
+![Daily timeline](assets/timeline.png)
 
 ## Install
 
@@ -24,102 +13,76 @@ Requires Pi `0.84.x` and Node `>=22.19.0`.
 pi install npm:@frostime/pi-usage-analytics
 ```
 
-Try a local checkout without permanent installation:
+Try a local checkout without installing:
 
 ```bash
 pi -e .
 ```
 
-The lifecycle/identity behavior used by v1 was characterized on Pi `0.84.1` (Node `24.12.0`, Windows x64) and is implemented against the current `0.84.x` extension/session API shape. Earlier Pi lines are not supported by v1.
-
 ## Use
 
-Run:
+Run `/usage` in Pi. The dashboard opens as a centered overlay. Navigate with the keyboard:
+
+| Key | Action |
+|---|---|
+| `↑/↓` | Select a row |
+| `Enter` | Inspect that item over the timeline |
+| `←/→` | Switch between Summary and Timeline |
+| `r` | Change time range (today, 7d, 30d, month, custom) |
+| `g` | Group by Provider / Model, Provider, or Directory |
+| `m` | Maintenance menu (import, compact, storage) |
+| `q` | Close |
+
+Power-user shortcuts:
 
 ```text
-/usage
+/usage import    # Import past usage from Pi session history
+/usage compact   # Compress old raw events into daily aggregates
+/usage storage   # Reclaim unused database space
+/usage help      # Show all commands
 ```
 
-In TUI mode, the dashboard opens as a centered themed overlay so analytics stay visually separate from the conversation while preserving the terminal-native interaction model. The footer shows the available keys:
+## Features
 
-- `↑/↓`: select a summary row;
-- `Enter`: inspect that provider/model/provider/directory over the timeline;
-- `←/→`: switch Summary / Timeline;
-- `r`: choose Today, 7d, 30d, current/previous month, all time, or custom range;
-- `g`: group by Provider / Model, Provider, or Directory;
-- `m`: maintenance menu;
-- `q`: close.
+**Group by what matters.** Switch between Provider/Model, Provider only, or Directory to see where your tokens go.
 
-Power-user entry points are also available:
+![Group by menu](assets/group-by.png)
 
-```text
-/usage import
-/usage compact
-/usage storage
-/usage help
-```
+**Directory view** shows usage per working directory. Useful when you work across multiple projects.
 
-Normal use only requires remembering `/usage`.
+![Directory breakdown](assets/directories.png)
 
-## Time semantics
+**Timeline** shows daily totals so you can spot trends or spikes.
 
-The database chooses the current OS IANA timezone when it is first created and keeps it as the reporting timezone.
+**Time range** covers today, last 7/30 days, this/previous month, all time, or a custom range.
 
-- event timestamps remain absolute UTC milliseconds;
-- `Today`, day timelines, weeks, and months use the stored reporting timezone;
-- weeks start Monday;
-- 7d/30d means calendar days including today, not rolling 168/720 hours;
-- timezone does not silently change when the machine later moves to another timezone.
+![Time range picker](assets/time-range.png)
 
-This is necessary because old raw events can be destructively compressed into day aggregates.
+**Import history** scans your Pi session files and backfills usage you used before installing this extension. It deduplicates against already-recorded events, so running it multiple times is safe.
 
-## History import
+**Compact old data** converts raw event rows into permanent daily aggregates. After compaction you keep day-level totals and breakdowns, but lose per-message detail. A preview is shown before anything is deleted.
 
-History is never scanned automatically. Use `/usage import` and choose:
+## Data & Privacy
 
-- Last 30 days;
-- All history;
-- Since a date.
-
-The importer reads Pi session JSONL in streaming mode, scans all persisted branches, does not modify session files, and globally deduplicates cloned/copied history. Date-limited imports prune session files that are definitely older before parsing them.
-
-## Compress old raw data
-
-`/usage compact` converts old event-level rows into permanent daily provider/model/directory aggregates. The recommended retention keeps the latest 30 calendar days as raw events.
-
-Before deletion, Pi Usage Analytics shows a preview and requires confirmation. After compression you retain:
-
-- day/week/month/date-range analytics;
-- provider/model/provider/directory breakdowns;
-- input/output/cache-read/cache-write totals;
-- estimated cost and turn counts;
-- exact import deduplication.
-
-You lose individual-message, session-level, and sub-day detail for the compressed events.
-
-Compaction and physical SQLite file shrinking are separate. Use `/usage storage` → **Reclaim unused DB space** to run an explicit `VACUUM` when desired.
-
-## Storage and privacy
-
-Default database:
+Everything is stored locally in a SQLite database:
 
 ```text
 ~/.pi/agent/usage-analytics/usage.db
 ```
 
-`PI_CODING_AGENT_DIR` is respected.
+`PI_CODING_AGENT_DIR` is respected if set.
 
-The ledger does not store prompt text, assistant text, thinking, tool arguments, or tool output. It stores usage metadata and raw cwd/session provenance only while an event remains uncompressed; permanent daily rows keep cwd but not session/message detail. Dedup keys remain after compaction so a later history import cannot charge old copied messages again.
+The ledger stores only usage metadata: provider, model, token counts, estimated cost, working directory, and timestamp. It does **not** store prompt text, assistant responses, thinking content, tool arguments, or tool output.
 
-SQLite uses WAL so multiple Pi processes can share one database while SQLite serializes writers. Realtime capture does not open a write transaction for every tool-driven turn: identified usage facts are buffered in-process and normally flushed as one batch at `agent_settled`. If another process owns the SQLite writer lock, the realtime flush gives up quickly, keeps the pending batch, and retries at a later flush opportunity instead of holding up Pi Coding.
+## Technical Details
 
-The realtime buffer is deliberately best-effort rather than a second durable queue. A sudden process exit can lose still-pending telemetry, and an extended database outage can overflow the bounded buffer. This is an accepted analytics trade-off: manual `/usage import` can recover persisted assistant usage from Pi session JSONL. The extension preserves exact per-response identity for deduplication even though persistence is batched.
+**Concurrency.** The database uses SQLite WAL mode, so multiple Pi processes can share one file. Writers are serialized by SQLite; readers do not block.
 
-## Accounting scope
+**Realtime capture.** Usage events are buffered in memory and flushed as a batch at `agent_settled`. If the database is locked by another process, the buffer keeps the pending batch and retries later. This means Pi never waits on analytics I/O. In the rare case of a sudden crash, the last few events in the buffer may be lost; `/usage import` can recover them from session history.
 
-V1 headline totals count only assistant responses that Pi explicitly attributes to a provider and model.
+**Time handling.** The database picks your system timezone at creation and keeps it for all calendar-day calculations. Event timestamps are stored as UTC. The timezone does not change if you later move your machine to a different zone, because old raw events may already have been compressed into day aggregates.
 
-Tool-result-reported nested usage, compaction usage, and branch-summary usage are not added to the main totals because they do not carry the same reliable provider/model attribution and may overlap nested session usage. The extension prefers an incomplete-but-literal attributable total over guessed or double-counted accounting.
+**Scope.** Headline totals count only assistant responses that Pi explicitly attributes to a provider and model. Tool-result-reported usage, compaction overhead, and branch summaries are excluded to avoid double-counting.
 
 ## Development
 
@@ -129,27 +92,7 @@ npm run check
 npm run pack:dry
 ```
 
-Developer documentation starts at `.dev/docs/index.md`. Module maintenance contracts live in `src/*/SPEC.md`. Root agent instructions are in `AGENTS.md`.
-
-## Publish to the Pi package gallery
-
-The package manifest contains the required `pi-package` keyword and `pi.extensions` declaration. Pi's package gallery discovers npm packages from that metadata.
-
-Before first publish, confirm the npm name remains available:
-
-```bash
-npm view @frostime/pi-usage-analytics version
-```
-
-Then:
-
-```bash
-npm run check
-npm run pack:dry
-npm publish --access public
-```
-
-See `.dev/docs/release.md` for the release gate.
+Developer documentation starts at `.dev/docs/index.md`. Module contracts live in `src/*/SPEC.md`. Root agent instructions are in `AGENTS.md`.
 
 ## License
 
