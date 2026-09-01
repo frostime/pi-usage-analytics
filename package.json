@@ -4,7 +4,7 @@
     "name": "frostime",
     "url": "https://github.com/frostime"
   },
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Tracing and usage analytics for Pi, covering provider/model, directory, timeline, history import, and safe daily compaction.",
   "repository": {
     "type": "git",

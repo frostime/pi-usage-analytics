@@ -11,6 +11,8 @@
 - The overlay renders using the active Pi theme; do not hard-code ANSI colors.
 - Range/group/maintenance pickers remain native Pi dialogs. Close the dashboard overlay before opening those dialogs; do not stack modal flows unnecessarily.
 - Summary and Timeline remain the only v1 dashboard views.
+- Pi-reported `totalTokens` is the primary token-usage metric. The headline must label it explicitly as **Total Tokens**; Input / Cache Read / Output are explanatory breakdowns and must not be substituted for Total.
+- Summary and Timeline rows expose `Total` directly. On narrow terminals, preserve Total and Cost before optional breakdown columns.
 - Summary row identity and filtering come from `UsageReport`; the UI must not reinterpret provider/model/directory values.
 - The panel adapts row count to terminal height and lets Pi clamp overlay width/height on small terminals.
 - Non-TUI modes retain the plain notification fallback; overlay support is never required for RPC/print/json operation.

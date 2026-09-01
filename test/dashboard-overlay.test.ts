@@ -39,8 +39,10 @@ test("dashboard renderer produces a bordered overlay panel", () => {
   assert.match(lines[0]!, /^╭─+╮$/);
   assert.match(lines.at(-1)!, /^╰─+╯$/);
   assert.ok(lines.some((line) => line.includes("Pi Usage Analytics")));
+  assert.ok(lines.some((line) => line.includes("175.98M Total Tokens")));
   assert.ok(lines.some((line) => line.includes("$181.42")));
-  assert.ok(lines.some((line) => line.includes("› anthropic/claude-opus-4-1")));
+  assert.ok(lines.some((line) => line.includes("Total") && line.includes("Input") && line.includes("Cache") && line.includes("Output")));
+  assert.ok(lines.some((line) => line.includes("› anthropic/claude-opus-4-1") && line.includes("93.19M")));
   assert.ok(lines.every((line) => line.length > 0));
 });
 
@@ -90,4 +92,23 @@ test("dashboard renderer respects narrow overlay widths", () => {
   });
 
   assert.ok(lines.every((line) => visibleWidth(line) <= 30));
+  assert.ok(lines.some((line) => line.includes("175.98M Total Tokens")));
+});
+
+test("metric strip keeps every column when the one-line layout barely fits", () => {
+  // Fixture strip joins to 98 visible columns (headline 39 + separator 7 + breakdown 52).
+  // At innerWidth 96 the old width estimate (separator counted as 3 instead of 7)
+  // picked the one-line layout and frame() clipped the trailing output column.
+  const lines = renderOverlayPanel({
+    report,
+    state: { range: report.range, groupBy: "model" },
+    view: "summary",
+    selected: 0,
+    scrollOffset: 0,
+    pageSize: 8,
+    theme,
+    width: 98,
+    reportingTimezone: "Asia/Shanghai",
+  });
+  assert.ok(lines.some((line) => line.includes("2.18M output")));
 });

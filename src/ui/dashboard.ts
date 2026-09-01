@@ -165,20 +165,22 @@ function dashboardPageSize(terminalRows: number): number {
 
 function renderMetricStrip(report: UsageReport, theme: ThemeLike, width: number): string[] {
   const t = report.totals;
-  const metrics = [
-    theme.fg("accent", theme.bold(formatCost(t.cost))) + theme.fg("dim", " cost"),
+  const SEP = "   │   ";
+  const total = theme.bold(formatTokens(t.totalTokens)) + theme.fg("dim", " Total Tokens");
+  const cost = theme.fg("accent", theme.bold(formatCost(t.cost))) + theme.fg("dim", " cost");
+  const breakdown = [
     theme.bold(formatTokens(t.input)) + theme.fg("dim", " input"),
-    theme.bold(formatTokens(t.cacheRead)) + theme.fg("dim", " cache"),
+    theme.bold(formatTokens(t.cacheRead)) + theme.fg("dim", " cache read"),
     theme.bold(formatTokens(t.output)) + theme.fg("dim", " output"),
   ];
 
-  const oneLine = metrics.join(theme.fg("dim", "   │   "));
-  if (visibleWidth(oneLine) <= width) return [oneLine];
+  const headline = `${total}${theme.fg("dim", SEP)}${cost}`;
+  const breakdownLine = breakdown.join(theme.fg("dim", SEP));
+  if (visibleWidth(headline) + visibleWidth(SEP) + visibleWidth(breakdownLine) <= width) {
+    return [`${headline}${theme.fg("dim", SEP)}${breakdownLine}`];
+  }
 
-  return [
-    metrics.slice(0, 2).join(theme.fg("dim", "   │   ")),
-    metrics.slice(2).join(theme.fg("dim", "   │   ")),
-  ];
+  return [headline, breakdownLine];
 }
 
 function renderTabs(view: "summary" | "timeline", theme: ThemeLike, width: number): string {
@@ -198,22 +200,28 @@ function renderSummary(
 ): string[] {
   if (rows.length === 0) return [theme.fg("muted", "No usage recorded for this range.")];
 
-  const labelWidth = Math.max(12, Math.min(42, width - 43));
-  const header = rowLine(groupLabel(groupBy), "Input", "Cache", "Output", "Cost", labelWidth);
+  const compact = width < 76;
+  const labelWidth = Math.max(12, Math.min(42, width - (compact ? 23 : 52)));
+  const header = compact
+    ? compactRowLine(groupLabel(groupBy), "Total", "Cost", labelWidth)
+    : rowLine(groupLabel(groupBy), "Total", "Input", "Cache", "Output", "Cost", labelWidth);
   const lines = [theme.fg("dim", truncateToWidth(header, width))];
   const visible = rows.slice(offset, offset + pageSize);
 
   visible.forEach((row, localIndex) => {
     const index = offset + localIndex;
     const label = groupBy === "directory" ? displayDirectory(row.key) : row.key;
-    const text = rowLine(
-      label,
-      formatTokens(row.input),
-      formatTokens(row.cacheRead),
-      formatTokens(row.output),
-      formatCost(row.cost),
-      labelWidth,
-    );
+    const text = compact
+      ? compactRowLine(label, formatTokens(row.totalTokens), formatCost(row.cost), labelWidth)
+      : rowLine(
+          label,
+          formatTokens(row.totalTokens),
+          formatTokens(row.input),
+          formatTokens(row.cacheRead),
+          formatTokens(row.output),
+          formatCost(row.cost),
+          labelWidth,
+        );
     const clipped = truncateToWidth(text, Math.max(1, width - 2));
     lines.push(index === selected ? theme.fg("accent", `› ${clipped}`) : `  ${clipped}`);
   });
@@ -227,19 +235,26 @@ function renderSummary(
 function renderTimeline(report: UsageReport, pageSize: number, theme: ThemeLike, width: number): string[] {
   if (report.timeline.length === 0) return [theme.fg("muted", "No usage recorded for this range.")];
   const labelWidth = 12;
-  const lines = [theme.fg("dim", truncateToWidth(rowLine("Date", "Input", "Cache", "Output", "Cost", labelWidth), width))];
+  const compact = width < 76;
+  const header = compact
+    ? compactRowLine("Date", "Total", "Cost", labelWidth)
+    : rowLine("Date", "Total", "Input", "Cache", "Output", "Cost", labelWidth);
+  const lines = [theme.fg("dim", truncateToWidth(header, width))];
   const rows = report.timeline.slice(-pageSize);
   for (const row of rows) {
     lines.push(
       truncateToWidth(
-        rowLine(
-          row.day,
-          formatTokens(row.input),
-          formatTokens(row.cacheRead),
-          formatTokens(row.output),
-          formatCost(row.cost),
-          labelWidth,
-        ),
+        compact
+          ? compactRowLine(row.day, formatTokens(row.totalTokens), formatCost(row.cost), labelWidth)
+          : rowLine(
+              row.day,
+              formatTokens(row.totalTokens),
+              formatTokens(row.input),
+              formatTokens(row.cacheRead),
+              formatTokens(row.output),
+              formatCost(row.cost),
+              labelWidth,
+            ),
         width,
       ),
     );
@@ -280,8 +295,20 @@ function renderHints(state: DashboardState, view: "summary" | "timeline"): strin
   return "←→ view   r range   g group   m manage   q close";
 }
 
-function rowLine(label: string, input: string, cache: string, output: string, cost: string, labelWidth: number): string {
-  return [fit(label, labelWidth), leftPad(input, 8), leftPad(cache, 8), leftPad(output, 8), leftPad(cost, 10)].join(" ");
+function rowLine(
+  label: string,
+  total: string,
+  input: string,
+  cache: string,
+  output: string,
+  cost: string,
+  labelWidth: number,
+): string {
+  return [fit(label, labelWidth), leftPad(total, 8), leftPad(input, 8), leftPad(cache, 8), leftPad(output, 8), leftPad(cost, 10)].join(" ");
+}
+
+function compactRowLine(label: string, total: string, cost: string, labelWidth: number): string {
+  return [fit(label, labelWidth), leftPad(total, 8), leftPad(cost, 10)].join(" ");
 }
 
 function fit(value: string, width: number): string {
@@ -302,10 +329,12 @@ function groupLabel(groupBy: GroupBy): string {
 function renderPlainReport(report: UsageReport, state: DashboardState): string[] {
   const lines = [`Pi Usage · ${state.range.label} · ${dbSafeLabel(state.groupBy)}`];
   lines.push(
-    `Cost ${formatCost(report.totals.cost)} · Input ${formatTokens(report.totals.input)} · Cache read ${formatTokens(report.totals.cacheRead)} · Output ${formatTokens(report.totals.output)}`,
+    `Total ${formatTokens(report.totals.totalTokens)} tokens · Cost ${formatCost(report.totals.cost)} · Input ${formatTokens(report.totals.input)} · Cache read ${formatTokens(report.totals.cacheRead)} · Output ${formatTokens(report.totals.output)}`,
   );
   for (const row of report.summary.slice(0, 20)) {
-    lines.push(`${row.key}: ${formatTokens(row.input)} in · ${formatTokens(row.cacheRead)} cache · ${formatTokens(row.output)} out · ${formatCost(row.cost)}`);
+    lines.push(
+      `${row.key}: ${formatTokens(row.totalTokens)} total · ${formatTokens(row.input)} in · ${formatTokens(row.cacheRead)} cache read · ${formatTokens(row.output)} out · ${formatCost(row.cost)}`,
+    );
   }
   return lines;
 }
