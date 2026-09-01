@@ -10,8 +10,16 @@
 需要 Pi `0.84.x` 和 Node `>=22.19.0`。
 
 ```bash
+pi install npm:@frostime/pi-usage-analytics
+```
+
+也可以从源码安装：
+
+```bash
 pi install git:github.com/frostime/pi-usage-analytics
 ```
+
+更新用 `pi update --extensions`，或只更新本包：`pi update npm:@frostime/pi-usage-analytics`。
 
 也可以本地试装，不永久安装：
 
