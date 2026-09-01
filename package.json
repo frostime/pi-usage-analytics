@@ -1,5 +1,9 @@
 {
   "name": "pi-usage-ledger",
+  "author": {
+    "name": "frostime",
+    "url": "https://github.com/frostime"
+  },
   "version": "0.1.0",
   "description": "Local SQLite usage analytics for Pi, with provider/model, directory, timeline, history import, and safe daily compaction.",
   "type": "module",
