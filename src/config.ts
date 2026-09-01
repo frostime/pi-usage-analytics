@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
-export const APP_DIR_NAME = "usage-ledger";
+export const APP_DIR_NAME = "usage-analytics";
 export const DB_FILE_NAME = "usage.db";
 
 export function getAgentDir(): string {

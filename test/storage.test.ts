@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { UsageDatabase } from "../src/storage/usage-database.ts";
@@ -34,6 +34,19 @@ function fact(key: string, input: number, day = "2026-08-01"): UsageFact {
     },
   };
 }
+
+test("database directory ignores generated files by default", () => {
+  const dir = mkdtempSync(join(tmpdir(), "pi-usage-analytics-test-"));
+  const databaseDir = join(dir, "data");
+  const db = new UsageDatabase(join(databaseDir, "usage.db"), "UTC");
+
+  try {
+    assert.equal(readFileSync(join(databaseDir, ".gitignore"), "utf8"), "*\n");
+  } finally {
+    db.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 function withDb(run: (db: UsageDatabase) => void): void {
   const dir = mkdtempSync(join(tmpdir(), "pi-usage-analytics-test-"));

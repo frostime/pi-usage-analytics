@@ -40,12 +40,12 @@ export async function runHistoryImport(ctx: ExtensionCommandContext, db: UsageDa
   }
 
   const root = historyRootForContext(ctx);
-  ctx.ui.setStatus("usage-ledger", "discovering history…");
+  ctx.ui.setStatus("usage-analytics", "discovering history…");
   let discovery;
   try {
     discovery = await discoverHistory(root, { sinceDay, timeZone: db.reportingTimezone });
   } finally {
-    ctx.ui.setStatus("usage-ledger", undefined);
+    ctx.ui.setStatus("usage-analytics", undefined);
   }
   if (discovery.files.length === 0) {
     ctx.ui.notify(`No Pi session JSONL files found under ${root}`, "warning");
@@ -63,11 +63,11 @@ export async function runHistoryImport(ctx: ExtensionCommandContext, db: UsageDa
   const result = await importHistory(db, discovery, { sinceDay }, (progress) => {
     if (progress.filesDone % 10 === 0 || progress.filesDone === progress.filesTotal) {
       ctx.ui.setStatus(
-        "usage-ledger",
+        "usage-analytics",
         `import ${progress.filesDone}/${progress.filesTotal} · +${progress.imported} · skip ${progress.skipped}`,
       );
     }
-  }).finally(() => ctx.ui.setStatus("usage-ledger", undefined));
+  }).finally(() => ctx.ui.setStatus("usage-analytics", undefined));
 
   ctx.ui.notify(
     `History import complete: ${result.imported} new, ${result.skipped} already known, ${result.malformed} malformed lines skipped.`,
@@ -128,9 +128,9 @@ export async function runCompact(ctx: ExtensionCommandContext, db: UsageDatabase
   if (!confirmed) return;
 
   const result = db.compactBefore(cutoffExclusive, (day, completed, total) => {
-    ctx.ui.setStatus("usage-ledger", `compress ${completed}/${total} · ${day}`);
+    ctx.ui.setStatus("usage-analytics", `compress ${completed}/${total} · ${day}`);
   });
-  ctx.ui.setStatus("usage-ledger", undefined);
+  ctx.ui.setStatus("usage-analytics", undefined);
   ctx.ui.notify(
     `Compressed ${result.daysCompacted} days; removed ${result.rawEventsRemoved} raw events. SQLite file size may not shrink until space is reclaimed.`,
     "info",
@@ -160,12 +160,12 @@ export async function openStorageMenu(ctx: ExtensionCommandContext, db: UsageDat
         "VACUUM rewrites the SQLite database and can temporarily require additional disk space. Run it now?",
       );
       if (confirmed) {
-        ctx.ui.setStatus("usage-ledger", "vacuuming database…");
+        ctx.ui.setStatus("usage-analytics", "vacuuming database…");
         try {
           db.vacuum();
           ctx.ui.notify(`Database compacted. Current footprint: ${formatBytes(db.getStorageStats().bytesOnDisk)}`, "info");
         } finally {
-          ctx.ui.setStatus("usage-ledger", undefined);
+          ctx.ui.setStatus("usage-analytics", undefined);
         }
       }
     }

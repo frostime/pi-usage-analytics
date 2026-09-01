@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, statSync } from "node:fs";
-import { dirname } from "node:path";
+import { existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { detectReportingTimezone } from "../usage/calendar.ts";
 import type { UsageFact } from "../usage/fact.ts";
@@ -90,6 +90,17 @@ interface AggregateCheck {
   costTotal: number;
 }
 
+function ensureIgnoredStorageDirectory(databasePath: string): void {
+  const storageDirectory = dirname(databasePath);
+  mkdirSync(storageDirectory, { recursive: true });
+
+  try {
+    writeFileSync(join(storageDirectory, ".gitignore"), "*\n", { flag: "wx" });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+  }
+}
+
 export class UsageDatabase {
   readonly databasePath: string;
   readonly reportingTimezone: string;
@@ -97,7 +108,7 @@ export class UsageDatabase {
 
   constructor(databasePath: string, initialTimezone = detectReportingTimezone()) {
     this.databasePath = databasePath;
-    mkdirSync(dirname(databasePath), { recursive: true });
+    ensureIgnoredStorageDirectory(databasePath);
     this.db = new DatabaseSync(databasePath);
     this.configure();
     this.migrate();

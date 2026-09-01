@@ -104,7 +104,7 @@ Compaction and physical SQLite file shrinking are separate. Use `/usage storage`
 Default database:
 
 ```text
-~/.pi/agent/usage-ledger/usage.db
+~/.pi/agent/usage-analytics/usage.db
 ```
 
 `PI_CODING_AGENT_DIR` is respected.
