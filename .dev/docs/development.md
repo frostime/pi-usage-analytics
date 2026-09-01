@@ -44,3 +44,8 @@ pi -e .
 ```
 
 Then use `/usage`, make one model turn, reopen `/usage`, and verify the current provider/model appears. Exercise `/usage import` only on a disposable or understood session tree during development because it intentionally scans user history when requested.
+
+
+## UI changes
+
+Dashboard changes should keep rendering pure with respect to accounting: obtain one `UsageReport`, then render it. Validate both the TUI overlay path and the non-TUI fallback. Overlay changes must remain within the Pi `0.84.x` `ctx.ui.custom`/`OverlayOptions` contract documented in `compatibility.md`.

@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Read `.dev/docs/index.md` before non-trivial changes. Read the nearest module `SPEC.md` before modifying usage semantics, Pi capture/import behavior, realtime ingestion, storage/compaction, or maintenance workflows.
+Read `.dev/docs/index.md` before non-trivial changes. Read the nearest module `SPEC.md` before modifying usage semantics, Pi capture/import behavior, realtime ingestion, storage/compaction, maintenance workflows, or dashboard interaction/rendering.
 
 ## Non-negotiable invariants
 
@@ -15,6 +15,7 @@ Read `.dev/docs/index.md` before non-trivial changes. Read the nearest module `S
 - History import, compaction, VACUUM, and reset remain explicit user actions; no background scan/maintenance.
 - Never persist prompt text, assistant text, thinking, tool arguments, or tool output.
 - Capture/flush errors must not break Pi's agent loop.
+- UI changes must preserve the non-TUI fallback and must not move accounting/storage rules into rendering code.
 
 ## Change workflow
 

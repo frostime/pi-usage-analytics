@@ -40,7 +40,7 @@ Run:
 /usage
 ```
 
-The dashboard is intentionally terminal-simple. Its footer shows the available keys:
+In TUI mode, the dashboard opens as a centered themed overlay so analytics stay visually separate from the conversation while preserving the terminal-native interaction model. The footer shows the available keys:
 
 - `↑/↓`: select a summary row;
 - `Enter`: inspect that provider/model/provider/directory over the timeline;

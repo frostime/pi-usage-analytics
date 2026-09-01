@@ -40,7 +40,7 @@ flowchart TD
 | `ingestion/` | process-local pending realtime facts, batch flush boundary, bounded best-effort loss | Pi message parsing, SQL/schema, durable recovery |
 | `storage/` | schema, migrations, exact dedup, batch transactions, raw/daily mixed queries, compact transactions | Pi lifecycle or user interaction |
 | `maintenance/` | explicit import/compact/storage workflows | hidden background jobs |
-| `ui/` | terminal rendering and formatting | persistence or accounting rules |
+| `ui/` | themed overlay dashboard, terminal rendering, formatting, responsive presentation | persistence or accounting rules |
 | `commands/` | `/usage` routing and interaction state | database internals |
 
 `UsageDatabase` is intentionally a deep module rather than a repository interface: SQLite-specific concurrency, migrations, dedup, compaction, and mixed queries are one cohesive knowledge boundary. There is no second storage implementation to abstract over.

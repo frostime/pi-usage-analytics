@@ -1,6 +1,6 @@
 {
   "name": "pi-usage-ledger",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Local SQLite usage analytics for Pi, with provider/model, directory, timeline, history import, and safe daily compaction.",
   "type": "module",
   "license": "MIT",

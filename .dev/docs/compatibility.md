@@ -27,5 +27,6 @@ Earlier Pi versions are not part of the support contract. The package keeps Pi c
 - Session entries have stable timestamps and copied fork/clone history retains the original entry/message facts needed by identity.
 - Default sessions are stored under project-specific directories beneath the Pi sessions root; custom session directories may be flat.
 - Package extensions may import `@earendil-works/pi-coding-agent` and `@earendil-works/pi-tui` as peer-provided Pi core modules.
+- TUI mode supports `ctx.ui.custom(..., { overlay: true, overlayOptions })`; v0.1.2 uses centered percentage-sized overlays with `anchor`, `width`, `minWidth`, `maxHeight`, and `margin`.
 
 When upgrading the supported Pi line, rerun the lifecycle/identity characterization before changing capture or identity semantics.

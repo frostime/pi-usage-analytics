@@ -19,3 +19,4 @@ Module-level maintenance contracts live beside the code:
 - `src/ingestion/SPEC.md`
 - `src/storage/SPEC.md`
 - `src/maintenance/SPEC.md`
+- `src/ui/SPEC.md`
