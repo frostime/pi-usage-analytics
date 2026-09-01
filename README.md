@@ -10,7 +10,7 @@ Track your token and cost usage across providers, models, and working directorie
 Requires Pi `0.84.x` and Node `>=22.19.0`.
 
 ```bash
-pi install npm:@frostime/pi-usage-analytics
+pi install git:github.com/frostime/pi-usage-analytics
 ```
 
 Try a local checkout without installing:
