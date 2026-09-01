@@ -1,0 +1,11 @@
+{
+  "packages": [
+    {
+      "source": "npm:@frostime/pi-usage-analytics",
+      "autoload": false,
+      "extensions": [
+        "-src\\index.ts"
+      ]
+    }
+  ]
+}
