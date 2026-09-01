@@ -9,6 +9,12 @@
 - `usage_daily`: permanent day × provider × model × cwd additive aggregates.
 - `settings`: database semantic settings such as reporting timezone.
 
+## Ingest transactions
+
+`ingestBatch()` persists multiple distinct canonical events in one transaction; batching must never collapse their event identities. A duplicate event key is skipped through `seen_events` exactly as with single-event ingest.
+
+`tryIngestBatch()` is the realtime-friendly path: it performs one short transaction attempt and reports `busy` instead of applying the storage module's maintenance retry policy. It must remain atomic: a `busy` result means the caller retains the whole pending batch for a later attempt.
+
 ## Query invariant
 
 A day may legally contain both a daily aggregate and later-imported raw events. Every analytics query must therefore aggregate:
@@ -37,9 +43,11 @@ Compaction is destructive only at event/session/sub-day detail level. Provider/m
 
 ## Concurrency
 
-The database uses WAL, `synchronous=NORMAL`, a bounded busy timeout, and bounded retry. This is a local analytics store rather than a financial ledger; avoiding long Pi hot-path stalls is preferred over `FULL` synchronous durability.
+The database uses WAL, `synchronous=NORMAL`, a short SQLite busy timeout, and bounded retry for operations that are allowed to wait. SQLite still serializes writers across processes.
 
-Do not add a daemon, write queue, or fallback log unless reproducible contention demonstrates the current policy is insufficient.
+Realtime ingestion must use the non-retrying batch attempt and defer on `SQLITE_BUSY`; it is lower responsibility than Pi Coding responsiveness. Explicit maintenance/import operations may use bounded retry because the user is already waiting for those operations.
+
+Do not add a daemon, worker thread, durable spool, or fallback log unless reproducible pressure cannot be contained by the current process-local batching and SQLite policy.
 
 ## Schema changes
 

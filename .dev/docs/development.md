@@ -23,6 +23,7 @@ npm run pack:dry
 ## High-value tests
 
 - `test/capture.test.ts`: assistant persisted-entry matching when toolResult is the leaf.
+- `test/realtime-buffer.test.ts`: agent-run batching primitives, busy-retain behavior, duplicate coalescing, and bounded pending memory.
 - `test/history-import.test.ts`: all-branch import plus copied-session global dedup.
 - `test/storage.test.ts`: idempotence, compaction equivalence, and late raw events after compaction.
 - `test/sqlite-concurrency.test.ts`: concurrent writers plus compactor against the same WAL database.

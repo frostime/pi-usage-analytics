@@ -1,12 +1,10 @@
 import type { ExtensionContext, TurnEndEvent } from "@earendil-works/pi-coding-agent";
-import type { UsageDatabase } from "../storage/usage-database.ts";
 import { createUsageEventKey } from "../usage/identity.ts";
-import { localDayFromEpochMs } from "../usage/calendar.ts";
-import { isAssistantMessage, isRecord } from "../usage/fact.ts";
+import { isAssistantMessage, isRecord, type IdentifiedUsageFact } from "../usage/fact.ts";
 import { normalizePersistedAssistantEntry, persistedEntryMatchesAssistantMessage } from "./normalize.ts";
 
-export function captureTurnUsage(event: TurnEndEvent, ctx: ExtensionContext, db: UsageDatabase): boolean {
-  if (!isAssistantMessage(event.message)) return false;
+export function captureTurnUsage(event: TurnEndEvent, ctx: ExtensionContext): IdentifiedUsageFact | null {
+  if (!isAssistantMessage(event.message)) return null;
 
   const entries = ctx.sessionManager.getEntries();
   let matched: unknown = null;
@@ -37,9 +35,5 @@ export function captureTurnUsage(event: TurnEndEvent, ctx: ExtensionContext, db:
     usage: seed.amounts,
   });
 
-  return db.ingest({
-    ...seed,
-    eventKey,
-    localDay: localDayFromEpochMs(seed.eventTsMs, db.reportingTimezone),
-  });
+  return { ...seed, eventKey };
 }

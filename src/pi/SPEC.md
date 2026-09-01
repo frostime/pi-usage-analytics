@@ -4,9 +4,11 @@ This module translates Pi runtime/session facts into the usage semantics defined
 
 ## Realtime capture
 
-Attributed model usage is captured from `turn_end`, not `message_end`.
+Attributed model usage is observed from `turn_end`, not `message_end`.
 
 At `turn_end`, locate the persisted assistant `message` entry by matching the event assistant message against persisted session entries. Do not assume the current leaf is the assistant entry: after tool use the leaf can already be a `toolResult` entry.
+
+Pi integration returns an identified usage fact; it does not decide when SQLite should be written. Realtime persistence timing belongs to `src/ingestion/`.
 
 If the persisted assistant entry cannot be found or cannot be normalized without guessing, fail that capture and surface a throttled warning. Do not fabricate an entry identity.
 

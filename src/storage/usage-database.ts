@@ -13,7 +13,7 @@ import type {
 } from "../usage/query.ts";
 
 const SCHEMA_VERSION = 1;
-const BUSY_TIMEOUT_MS = 1200;
+const BUSY_TIMEOUT_MS = 50;
 const BUSY_RETRY_DELAYS_MS = [30, 90, 240];
 const COST_EPSILON = 1e-9;
 
@@ -44,6 +44,15 @@ export interface CompactResult {
   rawEventsRemoved: number;
   aggregateRowsTouched: number;
 }
+
+export interface BatchIngestResult {
+  inserted: number;
+  skipped: number;
+}
+
+export type TryBatchIngestResult =
+  | ({ status: "ok" } & BatchIngestResult)
+  | { status: "busy" };
 
 interface CompactGroupRow {
   day: string;
@@ -100,60 +109,23 @@ export class UsageDatabase {
   }
 
   ingest(fact: UsageFact): boolean {
-    return this.immediateTransaction(() => {
-      const seen = this.db
-        .prepare(
-          `INSERT OR IGNORE INTO seen_events
-             (event_key, event_ts_ms, entry_ts_ms, first_seen_at_ms)
-           VALUES (?, ?, ?, ?)`,
-        )
-        .run(fact.eventKey, fact.eventTsMs, fact.entryTsMs, Date.now());
+    return this.ingestBatch([fact]).inserted === 1;
+  }
 
-      if (Number(seen.changes) === 0) return false;
+  ingestBatch(facts: UsageFact[]): BatchIngestResult {
+    if (facts.length === 0) return { inserted: 0, skipped: 0 };
+    return this.immediateTransaction(() => this.insertUsageFacts(facts));
+  }
 
-      const a = fact.amounts;
-      this.db
-        .prepare(
-          `INSERT INTO usage_events (
-             event_key, event_ts_ms, local_day,
-             provider, model, response_model, api, cwd,
-             session_id, entry_id, entry_ts_ms, stop_reason, has_error_message,
-             input, output, cache_read, cache_write, cache_write_1h, reasoning, total_tokens,
-             cost_input, cost_output, cost_cache_read, cost_cache_write, cost_total
-           ) VALUES (
-             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-           )`,
-        )
-        .run(
-          fact.eventKey,
-          fact.eventTsMs,
-          fact.localDay,
-          fact.provider,
-          fact.model,
-          fact.responseModel,
-          fact.api,
-          fact.cwd,
-          fact.sessionId,
-          fact.entryId,
-          fact.entryTsMs,
-          fact.stopReason,
-          fact.hasErrorMessage ? 1 : 0,
-          a.input,
-          a.output,
-          a.cacheRead,
-          a.cacheWrite,
-          a.cacheWrite1h,
-          a.reasoning,
-          a.totalTokens,
-          a.cost.input,
-          a.cost.output,
-          a.cost.cacheRead,
-          a.cost.cacheWrite,
-          a.cost.total,
-        );
-      return true;
-    });
+  tryIngestBatch(facts: UsageFact[]): TryBatchIngestResult {
+    if (facts.length === 0) return { status: "ok", inserted: 0, skipped: 0 };
+    try {
+      const result = this.immediateTransaction(() => this.insertUsageFacts(facts), false);
+      return { status: "ok", ...result };
+    } catch (error) {
+      if (isBusyError(error)) return { status: "busy" };
+      throw error;
+    }
   }
 
   query(spec: QuerySpec): UsageReport {
@@ -345,6 +317,68 @@ export class UsageDatabase {
     });
   }
 
+  private insertUsageFacts(facts: UsageFact[]): BatchIngestResult {
+    const seenStatement = this.db.prepare(
+      `INSERT OR IGNORE INTO seen_events
+         (event_key, event_ts_ms, entry_ts_ms, first_seen_at_ms)
+       VALUES (?, ?, ?, ?)`,
+    );
+    const eventStatement = this.db.prepare(
+      `INSERT INTO usage_events (
+         event_key, event_ts_ms, local_day,
+         provider, model, response_model, api, cwd,
+         session_id, entry_id, entry_ts_ms, stop_reason, has_error_message,
+         input, output, cache_read, cache_write, cache_write_1h, reasoning, total_tokens,
+         cost_input, cost_output, cost_cache_read, cost_cache_write, cost_total
+       ) VALUES (
+         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+       )`,
+    );
+
+    let inserted = 0;
+    let skipped = 0;
+    const firstSeenAtMs = Date.now();
+    for (const fact of facts) {
+      const seen = seenStatement.run(fact.eventKey, fact.eventTsMs, fact.entryTsMs, firstSeenAtMs);
+      if (Number(seen.changes) === 0) {
+        skipped += 1;
+        continue;
+      }
+
+      const a = fact.amounts;
+      eventStatement.run(
+        fact.eventKey,
+        fact.eventTsMs,
+        fact.localDay,
+        fact.provider,
+        fact.model,
+        fact.responseModel,
+        fact.api,
+        fact.cwd,
+        fact.sessionId,
+        fact.entryId,
+        fact.entryTsMs,
+        fact.stopReason,
+        fact.hasErrorMessage ? 1 : 0,
+        a.input,
+        a.output,
+        a.cacheRead,
+        a.cacheWrite,
+        a.cacheWrite1h,
+        a.reasoning,
+        a.totalTokens,
+        a.cost.input,
+        a.cost.output,
+        a.cost.cacheRead,
+        a.cost.cacheWrite,
+        a.cost.total,
+      );
+      inserted += 1;
+    }
+    return { inserted, skipped };
+  }
+
   private compactDay(day: string): { rawEventsRemoved: number; aggregateRowsTouched: number } {
     return this.immediateTransaction(() => {
       const groups = this.db
@@ -473,7 +507,11 @@ export class UsageDatabase {
 
   private configure(): void {
     this.db.exec(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS}`);
-    this.retryBusy(() => this.db.exec(`PRAGMA journal_mode = WAL`));
+    const journalModeRow = this.db.prepare(`PRAGMA journal_mode`).get() as Record<string, unknown>;
+    const currentJournalMode = String(Object.values(journalModeRow)[0] ?? "").toLowerCase();
+    if (currentJournalMode !== "wal") {
+      this.retryBusy(() => this.db.exec(`PRAGMA journal_mode = WAL`));
+    }
     this.db.exec(`PRAGMA synchronous = NORMAL`);
     this.db.exec(`PRAGMA foreign_keys = ON`);
   }
@@ -564,6 +602,9 @@ export class UsageDatabase {
   }
 
   private getOrCreateSetting(key: string, fallback: string): string {
+    const existing = this.db.prepare(`SELECT value FROM settings WHERE key = ?`).get(key) as Record<string, unknown> | undefined;
+    if (existing) return String(existing.value);
+
     return this.immediateTransaction(() => {
       this.db.prepare(`INSERT OR IGNORE INTO settings(key, value) VALUES (?, ?)`).run(key, fallback);
       const row = this.db.prepare(`SELECT value FROM settings WHERE key = ?`).get(key) as Record<string, unknown>;
@@ -571,8 +612,8 @@ export class UsageDatabase {
     });
   }
 
-  private immediateTransaction<T>(fn: () => T): T {
-    return this.retryBusy(() => {
+  private immediateTransaction<T>(fn: () => T, retry = true): T {
+    const run = () => {
       this.db.exec(`BEGIN IMMEDIATE`);
       try {
         const result = fn();
@@ -586,7 +627,8 @@ export class UsageDatabase {
         }
         throw error;
       }
-    });
+    };
+    return retry ? this.retryBusy(run) : run();
   }
 
   private retryBusy<T>(fn: () => T): T {

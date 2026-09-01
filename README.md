@@ -111,7 +111,9 @@ Default database:
 
 The ledger does not store prompt text, assistant text, thinking, tool arguments, or tool output. It stores usage metadata and raw cwd/session provenance only while an event remains uncompressed; permanent daily rows keep cwd but not session/message detail. Dedup keys remain after compaction so a later history import cannot charge old copied messages again.
 
-SQLite uses WAL, short transactions, and bounded lock retry so multiple Pi terminals can record into the same database. A concurrency regression test runs two writers and a compactor against one database.
+SQLite uses WAL so multiple Pi processes can share one database while SQLite serializes writers. Realtime capture does not open a write transaction for every tool-driven turn: identified usage facts are buffered in-process and normally flushed as one batch at `agent_settled`. If another process owns the SQLite writer lock, the realtime flush gives up quickly, keeps the pending batch, and retries at a later flush opportunity instead of holding up Pi Coding.
+
+The realtime buffer is deliberately best-effort rather than a second durable queue. A sudden process exit can lose still-pending telemetry, and an extended database outage can overflow the bounded buffer. This is an accepted analytics trade-off: manual `/usage import` can recover persisted assistant usage from Pi session JSONL. The extension preserves exact per-response identity for deduplication even though persistence is batched.
 
 ## Accounting scope
 

@@ -38,6 +38,10 @@ export interface UsageFact {
 
 export interface UsageFactSeed extends Omit<UsageFact, "eventKey" | "localDay"> {}
 
+export interface IdentifiedUsageFact extends UsageFactSeed {
+  eventKey: string;
+}
+
 export function normalizeCwd(value: unknown): string {
   if (typeof value !== "string" || value.trim() === "") return "";
   return resolve(value);
