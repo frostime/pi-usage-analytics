@@ -51,4 +51,8 @@ Do not add a daemon, worker thread, durable spool, or fallback log unless reprod
 
 ## Schema changes
 
-`PRAGMA user_version` is authoritative. A runtime must refuse to open a schema newer than it understands. Migrations must preserve the query and dedup invariants above.
+`PRAGMA user_version` is authoritative and uses monotonically increasing integers. A runtime must refuse to open a schema newer than it understands.
+
+`schema.ts` is the sole definition of tables, indexes, and ordered migration steps. A migration that may have shipped is immutable; append a new step for every later schema change. Each step runs in its own immediate transaction and updates `user_version` in that transaction, so a failed step can be retried from the last completed version.
+
+Migrations must preserve the query and dedup invariants above. Changing the serialized format of a value in `settings` is not a database schema change.

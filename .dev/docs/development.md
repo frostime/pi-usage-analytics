@@ -33,7 +33,7 @@ Add tests at the semantic boundary being changed rather than snapshotting TUI ou
 
 ## Database changes
 
-Before changing schema or compaction behavior, read `src/storage/SPEC.md`. Bump `PRAGMA user_version` for any schema change and make startup either migrate deterministically or reject the database. Never reinterpret existing daily rows without an explicit migration.
+Before changing schema or compaction behavior, read `src/storage/SPEC.md`. For any schema change, append the next integer-versioned step to `src/storage/schema.ts`; never modify a migration that may already have shipped. Each step and its `PRAGMA user_version` update must commit atomically. Startup must migrate deterministically or reject the database. Never reinterpret existing daily rows without an explicit migration.
 
 ## Local Pi smoke test
 
