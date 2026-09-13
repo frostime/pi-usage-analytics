@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `/usage` now keeps range and grouping changes for the active Pi session. Run `/usage save-default` to explicitly use the current view as the default for future sessions; non-TUI reports remain fixed to Today grouped by model.
+
 ## [0.3.0] - 2026-09-02
 
 ### Changed
