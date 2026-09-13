@@ -123,6 +123,20 @@ export class UsageDatabase {
     this.db.close();
   }
 
+  readSetting(key: string): string | null {
+    const row = this.db.prepare(`SELECT value FROM settings WHERE key = ?`).get(key) as Record<string, unknown> | undefined;
+    return row ? String(row.value) : null;
+  }
+
+  writeSetting(key: string, value: string): void {
+    this.immediateTransaction(() => {
+      this.db.prepare(
+        `INSERT INTO settings(key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      ).run(key, value);
+    });
+  }
+
   ingest(fact: UsageFact): boolean {
     return this.ingestBatch([fact]).inserted === 1;
   }
@@ -548,13 +562,12 @@ export class UsageDatabase {
   }
 
   private getOrCreateSetting(key: string, fallback: string): string {
-    const existing = this.db.prepare(`SELECT value FROM settings WHERE key = ?`).get(key) as Record<string, unknown> | undefined;
-    if (existing) return String(existing.value);
+    const existing = this.readSetting(key);
+    if (existing !== null) return existing;
 
     return this.immediateTransaction(() => {
       this.db.prepare(`INSERT OR IGNORE INTO settings(key, value) VALUES (?, ?)`).run(key, fallback);
-      const row = this.db.prepare(`SELECT value FROM settings WHERE key = ?`).get(key) as Record<string, unknown>;
-      return String(row.value);
+      return this.readSetting(key) ?? fallback;
     });
   }
 

@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: completed
 ---
 
 # 改动预测：让 /usage 保留当前 session 的视图，并显式保存默认值

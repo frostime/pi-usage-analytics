@@ -7,7 +7,7 @@
 - `seen_events`: permanent exact dedup registry. Compaction must never delete keys.
 - `usage_events`: raw per-assistant-event facts. These may be deleted only by explicit compaction/reset.
 - `usage_daily`: permanent day × provider × model × cwd additive aggregates.
-- `settings`: database semantic settings such as reporting timezone.
+- `settings`: keyed strings for database semantics such as reporting timezone and application-owned values such as dashboard defaults. Storage does not interpret application-owned formats.
 
 ## Ingest transactions
 

@@ -173,7 +173,7 @@ export async function openStorageMenu(ctx: ExtensionCommandContext, db: UsageDat
     if (choice === "Reset all usage data") {
       const first = await ctx.ui.confirm(
         "Reset all usage data",
-        "Delete raw events, daily aggregates, and dedup history? Reporting timezone is kept.",
+        "Delete raw events, daily aggregates, and dedup history? Reporting timezone and dashboard defaults are kept.",
       );
       if (!first) continue;
       const typed = await ctx.ui.input("Type RESET to confirm", "RESET");
