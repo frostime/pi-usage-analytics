@@ -1,5 +1,5 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { getDatabasePath } from "./config.ts";
+import { getDatabasePath } from "./configuration/config-home.ts";
 import { handleUsageCommand } from "./commands/usage.ts";
 import { RealtimeUsageBuffer } from "./ingestion/realtime-buffer.ts";
 import { captureTurnUsage } from "./pi/capture.ts";

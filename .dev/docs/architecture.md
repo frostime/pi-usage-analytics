@@ -35,6 +35,7 @@ flowchart TD
 
 | Module | Owns | Must not own |
 |---|---|---|
+| `configuration/` | local file-location conventions | analytics semantics, Pi interaction, SQLite implementation |
 | `usage/` | literal usage semantics, event identity, reporting calendar, query DTOs | Pi APIs, JSONL traversal, SQLite, TUI |
 | `pi/` | Pi event/session translation and persisted-entry matching | persistence timing, lock policy, accounting reinterpretation |
 | `ingestion/` | process-local pending realtime facts, batch flush boundary, bounded best-effort loss | Pi message parsing, SQL/schema, durable recovery |

@@ -1,6 +1,6 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { isAbsolute, relative, resolve } from "node:path";
-import { getDefaultSessionRoot } from "../config.ts";
+import { getDefaultSessionRoot } from "../configuration/config-home.ts";
 import type { UsageDatabase } from "../storage/usage-database.ts";
 import { addDays, isValidDay, localDayFromEpochMs } from "../usage/calendar.ts";
 import { discoverHistory, importHistory } from "./history-reader.ts";
