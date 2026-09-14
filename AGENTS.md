@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Read `.dev/docs/index.md` before non-trivial changes. Read the nearest module `SPEC.md` before modifying usage semantics, Pi capture/import behavior, realtime ingestion, storage/compaction, maintenance workflows, or dashboard interaction/rendering.
+Read `.dev/docs/index.md` before non-trivial changes. Read the nearest module `SPEC.md` before modifying usage semantics, Pi capture/import behavior, realtime ingestion, storage/compaction, durable user settings, maintenance workflows, or dashboard interaction/rendering.
 
 ## Non-negotiable invariants
 
