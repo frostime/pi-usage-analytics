@@ -41,13 +41,16 @@ pi -e .
 | `m` | 维护菜单（导入、压缩、存储管理） |
 | `q` | 关闭 |
 
+范围和分组只保留在当前 Pi session。`/usage save-default` 把它们存成以后 session 的默认值。非 TUI 的 `/usage` 始终报告「今天 + 按模型分组」。
+
 高级快捷入口：
 
 ```text
-/usage import    # 从 Pi 历史会话导入过往用量
-/usage compact   # 将旧原始数据压缩为日汇总
-/usage storage   # 回收数据库未用空间
-/usage help      # 显示所有命令
+/usage save-default  # 把当前 session 的范围和分组存为新 session 的默认值
+/usage import        # 从 Pi 历史会话导入过往用量
+/usage compact       # 将旧原始数据压缩为日汇总
+/usage storage       # 回收数据库未用空间
+/usage help          # 显示所有命令
 ```
 
 ## 功能
