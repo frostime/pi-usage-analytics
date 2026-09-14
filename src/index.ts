@@ -1,6 +1,6 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { getDatabasePath } from "./config.ts";
-import { handleUsageCommand } from "./commands/usage.ts";
+import { getDatabasePath } from "./configuration/config-home.ts";
+import { createUsageCommandHandler } from "./commands/usage.ts";
 import { RealtimeUsageBuffer } from "./ingestion/realtime-buffer.ts";
 import { captureTurnUsage } from "./pi/capture.ts";
 import { UsageDatabase } from "./storage/usage-database.ts";
@@ -10,6 +10,7 @@ export default function piUsageAnalytics(pi: ExtensionAPI): void {
   const realtime = new RealtimeUsageBuffer();
   let lastCaptureError = "";
   let lastCaptureErrorAt = 0;
+  const handleUsageCommand = createUsageCommandHandler();
 
   const getDb = (): UsageDatabase => {
     if (!database) database = new UsageDatabase(getDatabasePath());

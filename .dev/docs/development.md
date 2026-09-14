@@ -27,13 +27,16 @@ npm run pack:dry
 - `test/history-import.test.ts`: all-branch import plus copied-session global dedup.
 - `test/storage.test.ts`: idempotence, compaction equivalence, and late raw events after compaction.
 - `test/sqlite-concurrency.test.ts`: concurrent writers plus compactor against the same WAL database.
-- `test/calendar.test.ts`: reporting timezone and calendar-period semantics.
+- `test/calendar.test.ts`: reporting timezone, relative range re-resolution, and all-time bounds.
+- `test/schema-migration.test.ts`: ordered schema steps, reopen stability, and newer-schema rejection.
+- `test/user-settings.test.ts`: dashboard default persistence, unknown-schema fallback, and field-level repair-on-read.
+- `test/usage-command-session.test.ts`: session-local dashboard view, explicit save-default, and non-TUI isolation.
 
 Add tests at the semantic boundary being changed rather than snapshotting TUI output.
 
 ## Database changes
 
-Before changing schema or compaction behavior, read `src/storage/SPEC.md`. Bump `PRAGMA user_version` for any schema change and make startup either migrate deterministically or reject the database. Never reinterpret existing daily rows without an explicit migration.
+Before changing schema or compaction behavior, read `src/storage/SPEC.md`. For any schema change, append the next integer-versioned step to `src/storage/schema.ts`; never modify a migration that may already have shipped. Each step and its `PRAGMA user_version` update must commit atomically. Startup must migrate deterministically or reject the database. Never reinterpret existing daily rows without an explicit migration.
 
 ## Local Pi smoke test
 

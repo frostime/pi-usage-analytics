@@ -23,6 +23,7 @@ Earlier Pi versions are not part of the support contract. The package keeps Pi c
 - `turn_end` is emitted after the corresponding assistant message has been persisted to SessionManager.
 - `agent_settled` marks the end of the full session-level run after automatic retry/compaction/queued continuation, and is used as the primary realtime flush boundary.
 - `session_shutdown` is emitted before extension runtime teardown and is used for one final best-effort flush.
+- `/new`, `/resume`, `/fork`, `/clone`, and `/reload` tear down the current extension instance and bind a new instance for the next `session_start`. Dashboard interaction state deliberately relies on this instance boundary and resets to its durable default.
 - Tool-use turns may have a toolResult leaf by `turn_end`; matching must search persisted entries.
 - Session entries have stable timestamps and copied fork/clone history retains the original entry/message facts needed by identity.
 - Default sessions are stored under project-specific directories beneath the Pi sessions root; custom session directories may be flat.

@@ -36,4 +36,5 @@ Changing identity inputs requires incrementing `IDENTITY_VERSION` and a migratio
 - `Today`, day timelines, natural weeks, and natural months use that reporting timezone.
 - Weeks start Monday.
 - `Last 7 days` and `Last 30 days` are calendar-day windows including today, not rolling 168/720-hour durations.
+- A durable or session-lived range stores the user's choice, not the dates produced from a relative choice. Resolve that choice against the current reporting day whenever the dashboard opens.
 - Existing compacted history is not re-bucketed into another timezone.

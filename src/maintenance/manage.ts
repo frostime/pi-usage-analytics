@@ -1,6 +1,6 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { isAbsolute, relative, resolve } from "node:path";
-import { getDefaultSessionRoot } from "../config.ts";
+import { getDefaultSessionRoot } from "../configuration/config-home.ts";
 import type { UsageDatabase } from "../storage/usage-database.ts";
 import { addDays, isValidDay, localDayFromEpochMs } from "../usage/calendar.ts";
 import { discoverHistory, importHistory } from "./history-reader.ts";
@@ -173,7 +173,7 @@ export async function openStorageMenu(ctx: ExtensionCommandContext, db: UsageDat
     if (choice === "Reset all usage data") {
       const first = await ctx.ui.confirm(
         "Reset all usage data",
-        "Delete raw events, daily aggregates, and dedup history? Reporting timezone is kept.",
+        "Delete raw events, daily aggregates, and dedup history? Reporting timezone and dashboard defaults are kept.",
       );
       if (!first) continue;
       const typed = await ctx.ui.input("Type RESET to confirm", "RESET");

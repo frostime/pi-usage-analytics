@@ -11,8 +11,7 @@ import type {
   UsageReport,
   UsageTotals
 } from "../usage/query.ts";
-
-const SCHEMA_VERSION = 1;
+import { SCHEMA_MIGRATIONS, SCHEMA_VERSION } from "./schema.ts";
 const BUSY_TIMEOUT_MS = 50;
 const BUSY_RETRY_DELAYS_MS = [30, 90, 240];
 const COST_EPSILON = 1e-9;
@@ -110,13 +109,32 @@ export class UsageDatabase {
     this.databasePath = databasePath;
     ensureIgnoredStorageDirectory(databasePath);
     this.db = new DatabaseSync(databasePath);
-    this.configure();
-    this.migrate();
-    this.reportingTimezone = this.getOrCreateSetting("reporting_timezone", initialTimezone);
+    try {
+      this.configure();
+      this.migrate();
+      this.reportingTimezone = this.getOrCreateSetting("reporting_timezone", initialTimezone);
+    } catch (error) {
+      this.db.close();
+      throw error;
+    }
   }
 
   close(): void {
     this.db.close();
+  }
+
+  readSetting(key: string): string | null {
+    const row = this.db.prepare(`SELECT value FROM settings WHERE key = ?`).get(key) as Record<string, unknown> | undefined;
+    return row ? String(row.value) : null;
+  }
+
+  writeSetting(key: string, value: string): void {
+    this.immediateTransaction(() => {
+      this.db.prepare(
+        `INSERT INTO settings(key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      ).run(key, value);
+    });
   }
 
   ingest(fact: UsageFact): boolean {
@@ -533,93 +551,23 @@ export class UsageDatabase {
     if (version > SCHEMA_VERSION) {
       throw new Error(`usage database schema ${version} is newer than supported schema ${SCHEMA_VERSION}`);
     }
-    if (version === SCHEMA_VERSION) return;
 
-    this.immediateTransaction(() => {
-      this.db.exec(`
-        CREATE TABLE IF NOT EXISTS settings (
-          key TEXT PRIMARY KEY,
-          value TEXT NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS seen_events (
-          event_key TEXT PRIMARY KEY,
-          event_ts_ms INTEGER NOT NULL,
-          entry_ts_ms INTEGER NOT NULL,
-          first_seen_at_ms INTEGER NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS usage_events (
-          event_key TEXT PRIMARY KEY REFERENCES seen_events(event_key),
-          event_ts_ms INTEGER NOT NULL,
-          local_day TEXT NOT NULL,
-          provider TEXT NOT NULL,
-          model TEXT NOT NULL,
-          response_model TEXT,
-          api TEXT,
-          cwd TEXT NOT NULL,
-          session_id TEXT,
-          entry_id TEXT,
-          entry_ts_ms INTEGER NOT NULL,
-          stop_reason TEXT,
-          has_error_message INTEGER NOT NULL,
-          input INTEGER NOT NULL,
-          output INTEGER NOT NULL,
-          cache_read INTEGER NOT NULL,
-          cache_write INTEGER NOT NULL,
-          cache_write_1h INTEGER,
-          reasoning INTEGER,
-          total_tokens INTEGER NOT NULL,
-          cost_input REAL NOT NULL,
-          cost_output REAL NOT NULL,
-          cost_cache_read REAL NOT NULL,
-          cost_cache_write REAL NOT NULL,
-          cost_total REAL NOT NULL
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_usage_events_day ON usage_events(local_day);
-        CREATE INDEX IF NOT EXISTS idx_usage_events_model_day ON usage_events(provider, model, local_day);
-        CREATE INDEX IF NOT EXISTS idx_usage_events_cwd_day ON usage_events(cwd, local_day);
-
-        CREATE TABLE IF NOT EXISTS usage_daily (
-          day TEXT NOT NULL,
-          provider TEXT NOT NULL,
-          model TEXT NOT NULL,
-          cwd TEXT NOT NULL,
-          event_count INTEGER NOT NULL,
-          input INTEGER NOT NULL,
-          output INTEGER NOT NULL,
-          cache_read INTEGER NOT NULL,
-          cache_write INTEGER NOT NULL,
-          cache_write_1h_sum INTEGER NOT NULL,
-          cache_write_1h_reported_count INTEGER NOT NULL,
-          reasoning_sum INTEGER NOT NULL,
-          reasoning_reported_count INTEGER NOT NULL,
-          total_tokens INTEGER NOT NULL,
-          cost_input REAL NOT NULL,
-          cost_output REAL NOT NULL,
-          cost_cache_read REAL NOT NULL,
-          cost_cache_write REAL NOT NULL,
-          cost_total REAL NOT NULL,
-          PRIMARY KEY(day, provider, model, cwd)
-        ) WITHOUT ROWID;
-
-        CREATE INDEX IF NOT EXISTS idx_usage_daily_model_day ON usage_daily(provider, model, day);
-        CREATE INDEX IF NOT EXISTS idx_usage_daily_cwd_day ON usage_daily(cwd, day);
-
-        PRAGMA user_version = 1;
-      `);
-    });
+    for (const migration of SCHEMA_MIGRATIONS) {
+      if (migration.version <= version) continue;
+      this.immediateTransaction(() => {
+        migration.apply(this.db);
+        this.db.exec(`PRAGMA user_version = ${migration.version}`);
+      });
+    }
   }
 
   private getOrCreateSetting(key: string, fallback: string): string {
-    const existing = this.db.prepare(`SELECT value FROM settings WHERE key = ?`).get(key) as Record<string, unknown> | undefined;
-    if (existing) return String(existing.value);
+    const existing = this.readSetting(key);
+    if (existing !== null) return existing;
 
     return this.immediateTransaction(() => {
       this.db.prepare(`INSERT OR IGNORE INTO settings(key, value) VALUES (?, ?)`).run(key, fallback);
-      const row = this.db.prepare(`SELECT value FROM settings WHERE key = ?`).get(key) as Record<string, unknown>;
-      return String(row.value);
+      return this.readSetting(key) ?? fallback;
     });
   }
 

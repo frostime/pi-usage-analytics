@@ -4,6 +4,21 @@ export interface DayRange {
   label: string;
 }
 
+export type RangeChoice =
+  | { readonly kind: "today" }
+  | { readonly kind: "last-days"; readonly days: 7 | 30 }
+  | { readonly kind: "this-month" }
+  | { readonly kind: "previous-month" }
+  | { readonly kind: "all-time" }
+  | { readonly kind: "custom"; readonly startDay: string; readonly endDay: string };
+
+export interface AvailableDayBounds {
+  startDay: string | null;
+  endDay: string | null;
+}
+
+export const DEFAULT_RANGE_CHOICE: RangeChoice = { kind: "today" };
+
 const formatterCache = new Map<string, Intl.DateTimeFormat>();
 
 export function detectReportingTimezone(): string {
@@ -48,6 +63,55 @@ export function previousMonthRange(nowMs: number, timeZone: string): DayRange {
   const startDay = formatUtcDate(previous);
   const endDay = formatUtcDate(new Date(Date.UTC(year, month - 1, 0)));
   return { startDay, endDay, label: "Previous month" };
+}
+
+export function resolveRangeChoice(
+  choice: RangeChoice,
+  nowMs: number,
+  timeZone: string,
+  availableDays: AvailableDayBounds = { startDay: null, endDay: null },
+): DayRange {
+  if (choice.kind === "today") return todayRange(nowMs, timeZone);
+  if (choice.kind === "last-days") return lastCalendarDaysRange(choice.days, nowMs, timeZone);
+  if (choice.kind === "this-month") return thisMonthRange(nowMs, timeZone);
+  if (choice.kind === "previous-month") return previousMonthRange(nowMs, timeZone);
+  if (choice.kind === "custom") {
+    return {
+      startDay: choice.startDay,
+      endDay: choice.endDay,
+      label: `${choice.startDay} → ${choice.endDay}`,
+    };
+  }
+
+  const today = localDayFromEpochMs(nowMs, timeZone);
+  return {
+    startDay: availableDays.startDay ?? today,
+    endDay: availableDays.endDay ?? today,
+    label: "All time",
+  };
+}
+
+export function parseRangeChoice(value: unknown): RangeChoice | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Record<string, unknown>;
+  if (candidate.kind === "today") return { kind: "today" };
+  if (candidate.kind === "this-month") return { kind: "this-month" };
+  if (candidate.kind === "previous-month") return { kind: "previous-month" };
+  if (candidate.kind === "all-time") return { kind: "all-time" };
+  if (candidate.kind === "last-days" && (candidate.days === 7 || candidate.days === 30)) {
+    return { kind: "last-days", days: candidate.days };
+  }
+  if (
+    candidate.kind === "custom" &&
+    typeof candidate.startDay === "string" &&
+    typeof candidate.endDay === "string" &&
+    isValidDay(candidate.startDay) &&
+    isValidDay(candidate.endDay) &&
+    candidate.startDay <= candidate.endDay
+  ) {
+    return { kind: "custom", startDay: candidate.startDay, endDay: candidate.endDay };
+  }
+  return null;
 }
 
 export function weekRangeForDay(day: string): DayRange {

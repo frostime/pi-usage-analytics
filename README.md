@@ -41,13 +41,16 @@ Run `/usage` in Pi. The dashboard opens as a centered overlay. Navigate with the
 | `m` | Maintenance menu (import, compact, storage) |
 | `q` | Close |
 
+Range and grouping stay with the current Pi session. `/usage save-default` stores them as the default for later sessions. Non-TUI `/usage` always reports Today grouped by model.
+
 Power-user shortcuts:
 
 ```text
-/usage import    # Import past usage from Pi session history
-/usage compact   # Compress old raw events into daily aggregates
-/usage storage   # Reclaim unused database space
-/usage help      # Show all commands
+/usage save-default  # Save this session's range and grouping as the default for new sessions
+/usage import        # Import past usage from Pi session history
+/usage compact       # Compress old raw events into daily aggregates
+/usage storage       # Reclaim unused database space
+/usage help          # Show all commands
 ```
 
 ## Features

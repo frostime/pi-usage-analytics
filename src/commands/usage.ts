@@ -1,20 +1,74 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import {
+  DEFAULT_DASHBOARD_VIEW,
+  loadDashboardDefault,
+  saveDashboardDefault,
+  type DashboardViewSelection,
+} from "../configuration/user-settings.ts";
+import { openManageMenu, openStorageMenu, runCompact, runHistoryImport } from "../maintenance/manage.ts";
 import type { UsageDatabase } from "../storage/usage-database.ts";
 import {
   isValidDay,
-  lastCalendarDaysRange,
-  previousMonthRange,
-  thisMonthRange,
+  resolveRangeChoice,
   todayRange,
   type DayRange,
+  type RangeChoice,
 } from "../usage/calendar.ts";
 import type { GroupBy, SummaryRow, UsageFilter } from "../usage/query.ts";
-import { openDashboard, type DashboardState } from "../ui/dashboard.ts";
+import { openDashboard, type DashboardAction, type DashboardState } from "../ui/dashboard.ts";
 import { displayDirectory } from "../ui/format.ts";
-import { openManageMenu, openStorageMenu, runCompact, runHistoryImport } from "../maintenance/manage.ts";
 
-export async function handleUsageCommand(args: string, ctx: ExtensionCommandContext, db: UsageDatabase): Promise<void> {
+interface UsageCommandServices {
+  openDashboard(ctx: ExtensionCommandContext, db: UsageDatabase, state: DashboardState): Promise<DashboardAction>;
+  loadDashboardDefault(db: UsageDatabase): DashboardViewSelection;
+  saveDashboardDefault(db: UsageDatabase, view: DashboardViewSelection): void;
+  now(): number;
+}
+
+interface UsageCommandSession {
+  view?: DashboardViewSelection;
+}
+
+export type UsageCommandHandler = (
+  args: string,
+  ctx: ExtensionCommandContext,
+  db: UsageDatabase,
+) => Promise<void>;
+
+const DEFAULT_SERVICES: UsageCommandServices = {
+  openDashboard,
+  loadDashboardDefault,
+  saveDashboardDefault,
+  now: Date.now,
+};
+
+const RANGE_CHOICES: ReadonlyArray<{ label: string; choice: RangeChoice }> = [
+  { label: "Today", choice: { kind: "today" } },
+  { label: "Last 7 days", choice: { kind: "last-days", days: 7 } },
+  { label: "Last 30 days", choice: { kind: "last-days", days: 30 } },
+  { label: "This month", choice: { kind: "this-month" } },
+  { label: "Previous month", choice: { kind: "previous-month" } },
+  { label: "All time", choice: { kind: "all-time" } },
+];
+
+export function createUsageCommandHandler(
+  serviceOverrides: Partial<UsageCommandServices> = {},
+): UsageCommandHandler {
+  const session: UsageCommandSession = {};
+  const services = { ...DEFAULT_SERVICES, ...serviceOverrides };
+  return (args, ctx, db) => handleUsageCommand(args, ctx, db, session, services);
+}
+
+async function handleUsageCommand(
+  args: string,
+  ctx: ExtensionCommandContext,
+  db: UsageDatabase,
+  session: UsageCommandSession,
+  services: UsageCommandServices,
+): Promise<void> {
   const command = args.trim().toLowerCase();
+  if (command === "save-default") return saveCurrentViewAsDefault(ctx, db, session, services);
+
   if (command === "import" || command === "compact" || command === "compress" || command === "storage") {
     if (!ctx.hasUI) {
       ctx.ui.notify(`/${command === "compress" ? "usage compact" : `usage ${command}`} requires dialog-capable UI.`, "error");
@@ -30,32 +84,39 @@ export async function handleUsageCommand(args: string, ctx: ExtensionCommandCont
     return;
   }
 
-  let state: DashboardState = {
-    range: todayRange(Date.now(), db.reportingTimezone),
-    groupBy: "model",
-  };
+  if (ctx.mode !== "tui") {
+    await services.openDashboard(ctx, db, {
+      range: todayRange(services.now(), db.reportingTimezone),
+      groupBy: DEFAULT_DASHBOARD_VIEW.groupBy,
+    });
+    return;
+  }
+
+  session.view ??= services.loadDashboardDefault(db);
+  let state = dashboardState(db, session.view, services.now());
 
   while (true) {
-    const action = await openDashboard(ctx, db, state);
+    const action = await services.openDashboard(ctx, db, state);
     if (action.type === "close") return;
     if (action.type === "manage") {
-      if (!ctx.hasUI) {
-        ctx.ui.notify("Usage maintenance requires an interactive UI. Use /usage import, /usage compact, or /usage storage.", "warning");
-        return;
-      }
       await openManageMenu(ctx, db);
+      state = { ...state, range: resolveSelectionRange(db, session.view.range, services.now()) };
       continue;
     }
     if (action.type === "range") {
-      if (!ctx.hasUI) return;
-      const range = await chooseRange(ctx, db);
-      if (range) state = { ...state, range };
+      const range = await chooseRange(ctx);
+      if (range) {
+        session.view = { ...session.view, range };
+        state = { ...state, range: resolveSelectionRange(db, range, services.now()) };
+      }
       continue;
     }
     if (action.type === "group") {
-      if (!ctx.hasUI) return;
       const groupBy = await chooseGroup(ctx);
-      if (groupBy) state = { ...state, groupBy, filter: undefined, filterLabel: undefined };
+      if (groupBy) {
+        session.view = { ...session.view, groupBy };
+        state = { ...state, groupBy, filter: undefined, filterLabel: undefined };
+      }
       continue;
     }
     if (action.type === "inspect") {
@@ -69,33 +130,54 @@ export async function handleUsageCommand(args: string, ctx: ExtensionCommandCont
   }
 }
 
-async function chooseRange(ctx: ExtensionCommandContext, db: UsageDatabase): Promise<DayRange | null> {
-  const choice = await ctx.ui.select("Usage range", [
-    "Today",
-    "Last 7 days",
-    "Last 30 days",
-    "This month",
-    "Previous month",
-    "All time",
-    "Custom…",
-    "Cancel",
-  ]);
-  if (!choice || choice === "Cancel") return null;
-  const now = Date.now();
-  if (choice === "Today") return todayRange(now, db.reportingTimezone);
-  if (choice === "Last 7 days") return lastCalendarDaysRange(7, now, db.reportingTimezone);
-  if (choice === "Last 30 days") return lastCalendarDaysRange(30, now, db.reportingTimezone);
-  if (choice === "This month") return thisMonthRange(now, db.reportingTimezone);
-  if (choice === "Previous month") return previousMonthRange(now, db.reportingTimezone);
-  if (choice === "All time") {
-    const bounds = db.getBounds();
-    const today = todayRange(now, db.reportingTimezone).endDay;
-    return {
-      startDay: bounds.startDay ?? today,
-      endDay: bounds.endDay ?? today,
-      label: "All time",
-    };
+function saveCurrentViewAsDefault(
+  ctx: ExtensionCommandContext,
+  db: UsageDatabase,
+  session: UsageCommandSession,
+  services: UsageCommandServices,
+): void {
+  if (ctx.mode !== "tui") {
+    ctx.ui.notify("/usage save-default is only available in the interactive TUI.", "error");
+    return;
   }
+  if (!session.view) {
+    ctx.ui.notify("Open /usage and adjust the dashboard before saving its view as the default.", "warning");
+    return;
+  }
+
+  try {
+    services.saveDashboardDefault(db, session.view);
+    ctx.ui.notify("Current usage view saved as the default for new sessions.", "info");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    ctx.ui.notify(`Usage view remains active for this session, but the default was not saved: ${message}`, "error");
+  }
+}
+
+function dashboardState(db: UsageDatabase, view: DashboardViewSelection, nowMs: number): DashboardState {
+  return {
+    range: resolveSelectionRange(db, view.range, nowMs),
+    groupBy: view.groupBy,
+  };
+}
+
+function resolveSelectionRange(db: UsageDatabase, choice: RangeChoice, nowMs: number): DayRange {
+  const availableDays = choice.kind === "all-time" ? db.getBounds() : undefined;
+  return resolveRangeChoice(choice, nowMs, db.reportingTimezone, availableDays);
+}
+
+async function chooseRange(ctx: ExtensionCommandContext): Promise<RangeChoice | null> {
+  const customLabel = "Custom…";
+  const cancelLabel = "Cancel";
+  const choice = await ctx.ui.select("Usage range", [
+    ...RANGE_CHOICES.map((option) => option.label),
+    customLabel,
+    cancelLabel,
+  ]);
+  if (!choice || choice === cancelLabel) return null;
+
+  const predefined = RANGE_CHOICES.find((option) => option.label === choice);
+  if (predefined) return predefined.choice;
 
   const start = await ctx.ui.input("Custom range · start", "YYYY-MM-DD");
   if (!start) return null;
@@ -107,7 +189,7 @@ async function chooseRange(ctx: ExtensionCommandContext, db: UsageDatabase): Pro
     ctx.ui.notify("Invalid range. Use YYYY-MM-DD and make sure start ≤ end.", "error");
     return null;
   }
-  return { startDay, endDay, label: `${startDay} → ${endDay}` };
+  return { kind: "custom", startDay, endDay };
 }
 
 async function chooseGroup(ctx: ExtensionCommandContext): Promise<GroupBy | null> {
@@ -133,12 +215,14 @@ function showHelp(ctx: ExtensionCommandContext): void {
     [
       "Pi Usage Analytics",
       "",
-      "/usage           Open the interactive dashboard",
-      "/usage import    Manually scan Pi session history",
-      "/usage compact   Compress completed raw days into daily aggregates",
-      "/usage storage   Storage, integrity, VACUUM, reset",
-      "/usage help      Show this help",
+      "/usage                Open the interactive dashboard",
+      "/usage save-default   Save this session's current view as the default for new sessions",
+      "/usage import         Manually scan Pi session history",
+      "/usage compact        Compress completed raw days into daily aggregates",
+      "/usage storage        Storage, integrity, VACUUM, reset",
+      "/usage help           Show this help",
       "",
+      "Dashboard changes remain local to the active session until explicitly saved.",
       "No history scan or compaction runs in the background.",
     ].join("\n"),
     "info",

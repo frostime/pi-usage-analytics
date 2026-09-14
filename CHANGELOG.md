@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-15
+
+### Added
+- `/usage` now keeps range and grouping changes for the active Pi session. Run `/usage save-default` to explicitly use the current view as the default for future sessions; non-TUI reports remain fixed to Today grouped by model.
+
 ## [0.3.0] - 2026-09-02
 
 ### Changed
@@ -21,6 +26,7 @@ Published from commit [`f82720d`](https://github.com/frostime/pi-usage-analytics
 - Compaction (`/usage compact`) converts old raw events into permanent daily aggregates after a preview; `/usage storage` reclaims unused database space.
 - Local-first storage in SQLite (WAL mode) at `~/.pi/agent/usage-analytics/usage.db`. Only usage metadata is stored — never prompt text, assistant responses, thinking, tool arguments, or tool output.
 
-[Unreleased]: https://github.com/frostime/pi-usage-analytics/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/frostime/pi-usage-analytics/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/frostime/pi-usage-analytics/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/frostime/pi-usage-analytics/compare/f82720dfc9b9e1811ec8ed62aea2795539acea9a...v0.3.0
 [0.2.0]: https://github.com/frostime/pi-usage-analytics/commit/f82720dfc9b9e1811ec8ed62aea2795539acea9a
