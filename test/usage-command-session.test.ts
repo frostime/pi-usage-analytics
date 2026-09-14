@@ -70,6 +70,32 @@ test("dashboard changes stay in one command session until explicitly saved", asy
   assert.deepEqual(saved, [{ range: { kind: "last-days", days: 7 }, groupBy: "model" }]);
 });
 
+test("save-default does nothing until the dashboard has been opened", async () => {
+  let loadCalls = 0;
+  let saveCalls = 0;
+  const handler = createUsageCommandHandler({
+    openDashboard: async () => {
+      throw new Error("dashboard should not open for save-default");
+    },
+    loadDashboardDefault: () => {
+      loadCalls += 1;
+      return { range: { kind: "today" }, groupBy: "model" };
+    },
+    saveDashboardDefault: () => {
+      saveCalls += 1;
+    },
+  });
+  const { context, notifications } = fakeContext();
+
+  await handler("save-default", context, database);
+  await handler("save-default", context, database);
+
+  assert.equal(loadCalls, 0);
+  assert.equal(saveCalls, 0);
+  assert.match(notifications[0]?.message ?? "", /before saving/);
+  assert.equal(notifications[1]?.message, notifications[0]?.message);
+});
+
 test("a new command session initializes from the latest saved default", async () => {
   let dashboardDefault: DashboardViewSelection = { range: { kind: "today" }, groupBy: "model" };
   const firstObserved: DashboardState[] = [];
