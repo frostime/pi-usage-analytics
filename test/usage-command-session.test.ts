@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import { createUsageCommandHandler } from "../src/commands/usage.ts";
+import { createUsageCommandHandler, completeUsageSubcommands, USAGE_SUBCOMMANDS } from "../src/commands/usage.ts";
 import type { DashboardViewSelection } from "../src/configuration/user-settings.ts";
 import type { UsageDatabase } from "../src/storage/usage-database.ts";
 import type { DashboardAction, DashboardState } from "../src/ui/dashboard.ts";
@@ -149,7 +149,72 @@ test("a failed default save does not discard the active session view", async () 
   await handler("", context, database);
 
   assert.equal(observed.at(-1)?.groupBy, "directory");
-  assert.match(notifications.at(-1)?.message ?? "", /default was not saved: database is busy/);
+  assert.match(notifications.at(-1)?.message ?? "", /default view was not saved: database is busy/);
+});
+
+test("the dashboard save action persists the session view and reports the outcome", async () => {
+  const observed: DashboardState[] = [];
+  const saved: DashboardViewSelection[] = [];
+  const handler = createUsageCommandHandler({
+    openDashboard: dashboardSequence(
+      [{ type: "range" }, { type: "save-default" }, { type: "group" }, { type: "close" }],
+      observed,
+    ),
+    loadDashboardDefault: () => ({ range: { kind: "today" }, groupBy: "model" }),
+    saveDashboardDefault: (_db, view) => saved.push(structuredClone(view)),
+    now: () => Date.parse("2026-09-01T12:00:00Z"),
+  });
+  const { context } = fakeContext("tui", ["Last 30 days", "Directory"]);
+
+  await handler("", context, database);
+
+  assert.deepEqual(saved, [{ range: { kind: "last-days", days: 30 }, groupBy: "model" }]);
+  assert.deepEqual(observed[2]?.notice, { tone: "success", text: "Saved as the default view for new sessions." });
+  assert.equal(observed[3]?.notice, undefined);
+  assert.equal(observed[3]?.groupBy, "directory");
+});
+
+test("a failed dashboard save reports the error in the dashboard notice", async () => {
+  const observed: DashboardState[] = [];
+  const handler = createUsageCommandHandler({
+    openDashboard: dashboardSequence([{ type: "save-default" }, { type: "close" }], observed),
+    loadDashboardDefault: () => ({ range: { kind: "today" }, groupBy: "model" }),
+    saveDashboardDefault: () => {
+      throw new Error("database is busy");
+    },
+    now: () => Date.parse("2026-09-01T12:00:00Z"),
+  });
+  const { context } = fakeContext();
+
+  await handler("", context, database);
+
+  assert.deepEqual(observed.at(-1)?.notice, {
+    tone: "error",
+    text: "The default view was not saved: database is busy",
+  });
+});
+
+test("usage argument completion covers every documented subcommand", () => {
+  const allSubcommands = USAGE_SUBCOMMANDS.map((subcommand) => subcommand.name);
+
+  assert.deepEqual(completeUsageSubcommands("")?.map((item) => item.value), allSubcommands);
+  assert.deepEqual(completeUsageSubcommands("com")?.map((item) => item.value), ["compact"]);
+  assert.deepEqual(completeUsageSubcommands(" save ")?.map((item) => item.value), ["save-default"]);
+  assert.equal(completeUsageSubcommands("unknown"), null);
+});
+
+test("help explains every subcommand", async () => {
+  const handler = createUsageCommandHandler();
+  const { context, notifications } = fakeContext();
+
+  await handler("help", context, database);
+
+  const help = notifications.at(-1)?.message ?? "";
+  for (const subcommand of USAGE_SUBCOMMANDS) {
+    assert.ok(help.includes(`/usage ${subcommand.name}`), `help is missing ${subcommand.name}`);
+    assert.ok(subcommand.details.length > 0, `help details are empty for ${subcommand.name}`);
+  }
+  assert.match(help, /Nothing runs in the background/);
 });
 
 test("non-TUI usage ignores saved defaults and cannot save them", async () => {

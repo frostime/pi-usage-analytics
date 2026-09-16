@@ -30,7 +30,7 @@ npm run pack:dry
 - `test/calendar.test.ts`: reporting timezone, relative range re-resolution, and all-time bounds.
 - `test/schema-migration.test.ts`: ordered schema steps, reopen stability, and newer-schema rejection.
 - `test/user-settings.test.ts`: dashboard default persistence, unknown-schema fallback, and field-level repair-on-read.
-- `test/usage-command-session.test.ts`: session-local dashboard view, explicit save-default, and non-TUI isolation.
+- `test/usage-command-session.test.ts`: session-local dashboard view, explicit save actions (command and dashboard), argument completion, help coverage, and non-TUI isolation.
 
 Add tests at the semantic boundary being changed rather than snapshotting TUI output.
 

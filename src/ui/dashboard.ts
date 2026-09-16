@@ -10,14 +10,22 @@ export type DashboardAction =
   | { type: "range" }
   | { type: "group" }
   | { type: "manage" }
+  | { type: "save-default" }
   | { type: "inspect"; row: SummaryRow }
   | { type: "clear-filter" };
+
+export interface DashboardNotice {
+  readonly text: string;
+  readonly tone: "success" | "error";
+}
 
 export interface DashboardState {
   range: DayRange;
   groupBy: GroupBy;
   filter?: UsageFilter;
   filterLabel?: string;
+  /** Latest default-view save outcome; rendered until the next interaction. */
+  notice?: DashboardNotice;
 }
 
 interface ThemeLike {
@@ -47,7 +55,7 @@ export async function openDashboard(
 
       return {
         render(width: number): string[] {
-          const pageSize = dashboardPageSize(tui.terminal.rows);
+          const pageSize = dashboardPageSize(tui.terminal.rows, state.notice !== undefined);
           if (selected < scrollOffset) scrollOffset = selected;
           if (selected >= scrollOffset + pageSize) scrollOffset = Math.max(0, selected - pageSize + 1);
 
@@ -83,6 +91,10 @@ export async function openDashboard(
           }
           if (data === "m" || data === "M") {
             done({ type: "manage" });
+            return;
+          }
+          if (data === "s" || data === "S") {
+            done({ type: "save-default" });
             return;
           }
           if (matchesKey(data, Key.left) || matchesKey(data, Key.right)) {
@@ -153,14 +165,18 @@ export function renderOverlayPanel(input: OverlayRenderInput): string[] {
   }
 
   body.push(rule(theme, innerWidth));
+  if (state.notice) {
+    body.push(theme.fg(state.notice.tone, truncateToWidth(state.notice.text, innerWidth)));
+  }
   body.push(theme.fg("dim", truncateToWidth(renderHints(state, view), innerWidth)));
 
   return frame(body, theme, width);
 }
 
-function dashboardPageSize(terminalRows: number): number {
+function dashboardPageSize(terminalRows: number, hasNotice: boolean): number {
   const overlayHeight = Math.max(12, Math.floor(terminalRows * 0.84));
-  return Math.max(3, Math.min(14, overlayHeight - 11));
+  const reservedNoticeLines = hasNotice ? 1 : 0;
+  return Math.max(3, Math.min(14, overlayHeight - 11 - reservedNoticeLines));
 }
 
 function renderMetricStrip(report: UsageReport, theme: ThemeLike, width: number): string[] {
@@ -290,9 +306,9 @@ function joinSides(left: string, right: string, width: number): string {
 }
 
 function renderHints(state: DashboardState, view: "summary" | "timeline"): string {
-  if (state.filter) return "Esc back   ←→ view   r range   m manage   q close";
-  if (view === "summary") return "↑↓ select   Enter inspect   ←→ view   r range   g group   m manage   q close";
-  return "←→ view   r range   g group   m manage   q close";
+  if (state.filter) return "Esc back   ←→ view   r range   s save   m manage   q close";
+  if (view === "summary") return "↑↓ select   Enter inspect   ←→ view   r range   g group   s save   m manage   q close";
+  return "←→ view   r range   g group   s save   m manage   q close";
 }
 
 function rowLine(

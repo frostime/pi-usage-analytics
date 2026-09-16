@@ -38,19 +38,22 @@ Run `/usage` in Pi. The dashboard opens as a centered overlay. Navigate with the
 | `←/→` | Switch between Summary and Timeline |
 | `r` | Change time range (today, 7d, 30d, month, custom) |
 | `g` | Group by Provider / Model, Provider, or Directory |
+| `s` | Save the current range and grouping as the default |
 | `m` | Maintenance menu (import, compact, storage) |
 | `q` | Close |
 
-Range and grouping stay with the current Pi session. `/usage save-default` stores them as the default for later sessions. Non-TUI `/usage` always reports Today grouped by model.
+Range and grouping stay with the current Pi session. Press `s` in the dashboard to store them as the default for later sessions; `/usage save-default` does the same from outside the dashboard. Non-TUI `/usage` always reports Today grouped by model.
+
+`/usage` completes its subcommands: type `/usage ` and press Tab.
 
 Power-user shortcuts:
 
 ```text
-/usage save-default  # Save this session's range and grouping as the default for new sessions
+/usage save-default  # Save this session's range and grouping as the default for new sessions (or press `s` in the dashboard)
 /usage import        # Import past usage from Pi session history
 /usage compact       # Compress old raw events into daily aggregates
 /usage storage       # Reclaim unused database space
-/usage help          # Show all commands
+/usage help          # Show what every command actually does
 ```
 
 ## Features

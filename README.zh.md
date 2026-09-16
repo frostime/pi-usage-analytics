@@ -38,21 +38,24 @@ pi -e .
 | `←/→` | 在 Summary 和 Timeline 之间切换 |
 | `r` | 切换时间范围（今天、7天、30天、本月、自定义等） |
 | `g` | 切换分组方式（Provider/Model、Provider、Directory） |
+| `s` | 将当前范围和分组保存为默认值 |
 | `m` | 维护菜单（导入、压缩、存储管理） |
 | `q` | 关闭 |
 
-范围和分组只保留在当前 Pi session。`/usage save-default` 把它们存成以后 session 的默认值。非 TUI 的 `/usage` 始终报告「今天 + 按模型分组」。
+范围和分组只保留在当前 Pi session。在看板中按 `s` 即可将它们存为以后 session 的默认值；退出看板后用 `/usage save-default` 效果相同。非 TUI 的 `/usage` 始终报告「今天 + 按模型分组」。
+
+`/usage` 支持子命令补全：输入 `/usage ` 后按 Tab。
 
 高级快捷入口：
 
 ```text
-/usage save-default  # 把当前 session 的范围和分组存为新 session 的默认值
+/usage save-default  # 把当前 session 的范围和分组存为新 session 的默认值（也可在看板中按 `s`）
 /usage import        # 从 Pi 历史会话导入过往用量
 /usage compact       # 将旧原始数据压缩为日汇总
 /usage storage       # 回收数据库未用空间
-/usage help          # 显示所有命令
+/usage help          # 说明每个命令实际会做什么
 ```
-
+ 
 ## 功能
 
 **按维度分组。** 随时切换 Provider/Model、仅 Provider 或 Directory，看清 Token 花在了哪里。

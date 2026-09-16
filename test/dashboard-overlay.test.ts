@@ -112,3 +112,60 @@ test("metric strip keeps every column when the one-line layout barely fits", () 
   });
   assert.ok(lines.some((line) => line.includes("2.18M output")));
 });
+
+test("dashboard renders the latest default-save notice above the hints", () => {
+  const lines = renderOverlayPanel({
+    report,
+    state: {
+      range: report.range,
+      groupBy: "model",
+      notice: { tone: "success", text: "Saved as the default view for new sessions." },
+    },
+    view: "summary",
+    selected: 0,
+    scrollOffset: 0,
+    pageSize: 8,
+    theme,
+    width: 84,
+    reportingTimezone: "Asia/Shanghai",
+  });
+
+  const noticeIndex = lines.findIndex((line) => line.includes("Saved as the default view"));
+  const hintIndex = lines.findIndex((line) => line.includes("s save"));
+  assert.ok(noticeIndex > 0);
+  assert.ok(hintIndex > noticeIndex);
+});
+
+test("dashboard returns the save-default action when s is pressed", async () => {
+  let component: { handleInput(data: string): void } | undefined;
+  let finish: (action: unknown) => void = () => {};
+  const result = new Promise((resolve) => {
+    finish = resolve;
+  });
+  const db = {
+    reportingTimezone: "Asia/Shanghai",
+    query: () => report,
+  };
+  const ctx = {
+    mode: "tui",
+    ui: {
+      custom: (
+        factory: (
+          tui: unknown,
+          themeValue: unknown,
+          keybindings: unknown,
+          done: (action: unknown) => void,
+        ) => { handleInput(data: string): void },
+      ) => {
+        component = factory({ terminal: { rows: 40 }, requestRender: () => {} }, theme, undefined, finish);
+        return result;
+      },
+      notify: () => {},
+    },
+  };
+
+  const pending = openDashboard(ctx as never, db as never, { range: report.range, groupBy: "model" });
+  component?.handleInput("s");
+
+  assert.deepEqual(await pending, { type: "save-default" });
+});

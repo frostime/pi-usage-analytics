@@ -1,4 +1,5 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import type { AutocompleteItem } from "@earendil-works/pi-tui";
 import {
   DEFAULT_DASHBOARD_VIEW,
   loadDashboardDefault,
@@ -15,8 +16,76 @@ import {
   type RangeChoice,
 } from "../usage/calendar.ts";
 import type { GroupBy, SummaryRow, UsageFilter } from "../usage/query.ts";
-import { openDashboard, type DashboardAction, type DashboardState } from "../ui/dashboard.ts";
+import {
+  openDashboard,
+  type DashboardAction,
+  type DashboardNotice,
+  type DashboardState,
+} from "../ui/dashboard.ts";
 import { displayDirectory } from "../ui/format.ts";
+
+export interface UsageSubcommand {
+  readonly name: string;
+  /** One-line summary shown by argument completion. */
+  readonly description: string;
+  /** `/usage help` lines describing the actual interaction and its effects. */
+  readonly details: readonly string[];
+}
+
+/** Canonical `/usage` subcommands, shared by argument completion and help. */
+export const USAGE_SUBCOMMANDS: readonly UsageSubcommand[] = [
+  {
+    name: "save-default",
+    description: "Save the current dashboard view as the default",
+    details: [
+      "Stores the range and grouping currently shown in this session as the default for future sessions.",
+      "A filter applied with Enter is not part of the default.",
+      "Requires the dashboard to have been opened first; interactive TUI only.",
+    ],
+  },
+  {
+    name: "import",
+    description: "Import usage from Pi session history",
+    details: [
+      "Pick a range, then review a read-only scan report (file count and size) before anything is written.",
+      "Backfills usage from Pi session JSONL files; already-recorded events are skipped, so re-running is safe.",
+      "Requires a dialog-capable UI.",
+    ],
+  },
+  {
+    name: "compact",
+    description: "Compress completed raw days into daily aggregates",
+    details: [
+      "Pick a cutoff (default: older than 30 days), review the affected days and row counts, then confirm.",
+      "Per-message, per-session, and sub-day detail is deleted permanently; the current day is never compacted.",
+      "The database file does not shrink until you reclaim space in /usage storage.",
+    ],
+  },
+  {
+    name: "storage",
+    description: "Storage integrity, space reclaim, and reset",
+    details: [
+      "Opens a menu showing the database path, size, and row counts:",
+      "- Integrity check runs SQLite's integrity check.",
+      "- Reclaim unused DB space runs VACUUM; it can temporarily need extra disk space.",
+      "- Reset all usage data deletes raw, daily, and dedup data after you type RESET;",
+      "  timezone and dashboard defaults are kept.",
+    ],
+  },
+  {
+    name: "help",
+    description: "Show usage help",
+    details: ["Shows this text."],
+  },
+];
+
+export function completeUsageSubcommands(prefix: string): AutocompleteItem[] | null {
+  const query = prefix.trim().toLowerCase();
+  const matches = USAGE_SUBCOMMANDS.filter((subcommand) => subcommand.name.startsWith(query));
+  return matches.length === 0
+    ? null
+    : matches.map(({ name, description }) => ({ value: name, label: name, description }));
+}
 
 interface UsageCommandServices {
   openDashboard(ctx: ExtensionCommandContext, db: UsageDatabase, state: DashboardState): Promise<DashboardAction>;
@@ -98,6 +167,15 @@ async function handleUsageCommand(
   while (true) {
     const action = await services.openDashboard(ctx, db, state);
     if (action.type === "close") return;
+    if (action.type === "save-default") {
+      const view = session.view;
+      if (view) state = { ...state, notice: noticeForSave(saveViewDefault(db, view, services)) };
+      continue;
+    }
+
+    // Any other interaction dismisses the previous save notice.
+    state = { ...state, notice: undefined };
+
     if (action.type === "manage") {
       await openManageMenu(ctx, db);
       state = { ...state, range: resolveSelectionRange(db, session.view.range, services.now()) };
@@ -145,13 +223,31 @@ function saveCurrentViewAsDefault(
     return;
   }
 
+  const result = saveViewDefault(db, session.view, services);
+  ctx.ui.notify(result.message, result.ok ? "info" : "error");
+}
+
+interface DefaultSaveResult {
+  readonly ok: boolean;
+  readonly message: string;
+}
+
+function saveViewDefault(
+  db: UsageDatabase,
+  view: DashboardViewSelection,
+  services: UsageCommandServices,
+): DefaultSaveResult {
   try {
-    services.saveDashboardDefault(db, session.view);
-    ctx.ui.notify("Current usage view saved as the default for new sessions.", "info");
+    services.saveDashboardDefault(db, view);
+    return { ok: true, message: "Saved as the default view for new sessions." };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    ctx.ui.notify(`Usage view remains active for this session, but the default was not saved: ${message}`, "error");
+    return { ok: false, message: `The default view was not saved: ${message}` };
   }
+}
+
+function noticeForSave(result: DefaultSaveResult): DashboardNotice {
+  return { text: result.message, tone: result.ok ? "success" : "error" };
 }
 
 function dashboardState(db: UsageDatabase, view: DashboardViewSelection, nowMs: number): DashboardState {
@@ -211,20 +307,21 @@ function labelFromRow(groupBy: GroupBy, row: SummaryRow): string {
 }
 
 function showHelp(ctx: ExtensionCommandContext): void {
-  ctx.ui.notify(
-    [
-      "Pi Usage Analytics",
-      "",
-      "/usage                Open the interactive dashboard",
-      "/usage save-default   Save this session's current view as the default for new sessions",
-      "/usage import         Manually scan Pi session history",
-      "/usage compact        Compress completed raw days into daily aggregates",
-      "/usage storage        Storage, integrity, VACUUM, reset",
-      "/usage help           Show this help",
-      "",
-      "Dashboard changes remain local to the active session until explicitly saved.",
-      "No history scan or compaction runs in the background.",
-    ].join("\n"),
-    "info",
+  const lines = [
+    "Pi Usage Analytics — local token/cost ledger",
+    "",
+    "/usage",
+    "  Opens the interactive dashboard overlay.",
+    "  Keys: ↑↓ select · Enter inspect · ←→ summary/timeline · r range · g group · s save default · m maintenance · q close",
+    "  Range and grouping apply to this Pi session only; press s (or run /usage save-default) to keep them.",
+    "  Outside the TUI it prints a one-off Today-by-model report and cannot save defaults.",
+  ];
+  for (const subcommand of USAGE_SUBCOMMANDS) {
+    lines.push("", `/usage ${subcommand.name}`, ...subcommand.details.map((line) => `  ${line}`));
+  }
+  lines.push(
+    "",
+    "Nothing runs in the background: history scans, compaction, VACUUM, and reset happen only when invoked here.",
   );
+  ctx.ui.notify(lines.join("\n"), "info");
 }

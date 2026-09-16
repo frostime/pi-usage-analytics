@@ -1,6 +1,6 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getDatabasePath } from "./configuration/config-home.ts";
-import { createUsageCommandHandler } from "./commands/usage.ts";
+import { completeUsageSubcommands, createUsageCommandHandler } from "./commands/usage.ts";
 import { RealtimeUsageBuffer } from "./ingestion/realtime-buffer.ts";
 import { captureTurnUsage } from "./pi/capture.ts";
 import { UsageDatabase } from "./storage/usage-database.ts";
@@ -45,6 +45,7 @@ export default function piUsageAnalytics(pi: ExtensionAPI): void {
 
   pi.registerCommand("usage", {
     description: "Local token/cost usage analytics",
+    getArgumentCompletions: completeUsageSubcommands,
     handler: async (args, ctx) => {
       try {
         flushRealtime(ctx);

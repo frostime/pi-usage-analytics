@@ -15,7 +15,8 @@
 - Summary and Timeline rows expose `Total` directly. On narrow terminals, preserve Total and Cost before optional breakdown columns.
 - Summary row identity and filtering come from `UsageReport`; the UI must not reinterpret provider/model/directory values.
 - The panel adapts row count to terminal height and lets Pi clamp overlay width/height on small terminals.
-- Dashboard range and grouping changes remain local to the active extension session until `/usage save-default` explicitly saves them for future sessions.
+- Dashboard range and grouping changes remain local to the active extension session until an explicit save: `s` in the dashboard or `/usage save-default`.
+- The dashboard never persists the default itself. It returns a `save-default` action; the command layer performs the save and reports the outcome through `DashboardState.notice`.
 - Non-TUI modes retain the plain notification fallback; they always report Today grouped by model and never read or write saved dashboard defaults. Overlay support is never required for RPC/print/json operation.
 
 ## Complexity boundary

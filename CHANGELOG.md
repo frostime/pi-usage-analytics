@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `/usage` subcommands complete while typing (`/usage ` then Tab).
+- Pressing `s` in the dashboard saves the current range and grouping as the default for new sessions without leaving the overlay; save failures are reported inside the dashboard.
+
+### Changed
+- `/usage help` now explains what each subcommand actually does: what it opens, what it writes, and what is irreversible.
+
 ## [0.4.0] - 2026-09-15
 
 ### Added
